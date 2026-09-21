@@ -15,6 +15,7 @@ async def lifespan(app: FastAPI):
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
         tools=[MockInventoryTool()],
+        tool_mode=settings.tool_mode,
     )
     yield
 

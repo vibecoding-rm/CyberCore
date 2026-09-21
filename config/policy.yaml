@@ -4,9 +4,8 @@ scope:
   # Cambia estas redes sólo cuando tengas autorización documentada.
   allowed_networks:
     - 127.0.0.0/8
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
+    # Red reservada para el laboratorio simulado inicial.
+    - 192.168.10.0/24
   denied_networks:
     - 0.0.0.0/8
     - 100.64.0.0/10

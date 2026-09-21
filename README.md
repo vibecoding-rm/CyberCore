@@ -19,6 +19,11 @@ El LLM propone acciones, pero no ejecuta comandos arbitrarios. Sólo puede solic
 
 Este starter es un MVP seguro, no un producto terminado. Incluye una herramienta simulada para validar el flujo completo sin escanear redes. Los conectores reales se agregan después de superar las pruebas de políticas.
 
+La Fase 0 fuerza `TOOL_MODE=mock`, aplica validación estricta y mantiene cerradas las
+aprobaciones no verificables. Consulta
+[`docs/07_FASE_0_CONTROLES.md`](docs/07_FASE_0_CONTROLES.md) para conocer los
+controles implementados y cuáles sólo son válidos dentro de un proceso local.
+
 ## Comandos
 
 ```bash

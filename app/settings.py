@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     orchestrator_model: str = "qwen3.5:9b"
     analyst_model: str = "foundation-sec-8b-reasoning"
-    tool_mode: str = "mock"
+    tool_mode: Literal["mock"] = "mock"
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
