@@ -1,0 +1,4 @@
+CyberCore Starter v0.1.0
+Fecha del paquete: 2026-09-21
+Modo predeterminado: mock
+Estado: base inicial validada; conectores de escaneo real deshabilitados

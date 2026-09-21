@@ -1,0 +1,58 @@
+version: 1
+
+scope:
+  # Cambia estas redes sólo cuando tengas autorización documentada.
+  allowed_networks:
+    - 127.0.0.0/8
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  denied_networks:
+    - 0.0.0.0/8
+    - 100.64.0.0/10
+    - 169.254.0.0/16
+    - 224.0.0.0/4
+  allow_hostnames: false
+
+budgets:
+  max_targets_per_request: 256
+  max_duration_seconds: 300
+  max_parallel_jobs: 2
+  max_requests_per_hour: 30
+
+tools:
+  get_mock_inventory:
+    enabled: true
+    risk: low
+    approval_required: false
+  discover_hosts:
+    enabled: false
+    risk: medium
+    approval_required: true
+  inspect_services:
+    enabled: false
+    risk: medium
+    approval_required: true
+  run_nuclei_safe:
+    enabled: false
+    risk: high
+    approval_required: true
+  get_wazuh_inventory:
+    enabled: false
+    risk: low
+    approval_required: false
+  start_greenbone_task:
+    enabled: false
+    risk: high
+    approval_required: true
+
+evidence:
+  hash_algorithm: sha256
+  append_only: true
+  retain_raw_output: true
+
+llm:
+  may_request_tools: true
+  may_execute_shell: false
+  may_change_policy: false
+  may_self_approve: false

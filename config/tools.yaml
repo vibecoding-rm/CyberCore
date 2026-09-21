@@ -1,0 +1,25 @@
+tools:
+  - name: get_mock_inventory
+    purpose: Validar el flujo completo sin tocar una red.
+    target_argument: target
+    side_effect: none
+  - name: discover_hosts
+    purpose: Descubrir hosts activos dentro de un CIDR autorizado.
+    target_argument: cidr
+    side_effect: network_probe
+  - name: inspect_services
+    purpose: Identificar puertos y servicios en un host autorizado.
+    target_argument: host
+    side_effect: network_probe
+  - name: run_nuclei_safe
+    purpose: Ejecutar únicamente plantillas permitidas sobre un objetivo autorizado.
+    target_argument: target
+    side_effect: active_validation
+  - name: get_wazuh_inventory
+    purpose: Consultar inventario existente mediante API oficial.
+    target_argument: host
+    side_effect: read_only
+  - name: start_greenbone_task
+    purpose: Iniciar una tarea previamente configurada en Greenbone.
+    target_argument: target
+    side_effect: active_scan
