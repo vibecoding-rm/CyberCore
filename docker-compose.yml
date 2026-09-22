@@ -2,6 +2,9 @@ services:
   api:
     build: .
     restart: unless-stopped
+    command: >-
+      sh -c "python -m scripts.migrate_db &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8080"
     env_file: .env
     environment:
       DATABASE_URL: postgresql://cybercore:${POSTGRES_PASSWORD:-change_me}@postgres:5432/cybercore

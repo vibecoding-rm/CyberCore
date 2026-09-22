@@ -29,6 +29,13 @@ adaptador cuyo modo no sea `mock`.
 - Errores internos de adaptadores ocultos al cliente y registrados en el proceso.
 - Evidencia emitida sólo cuando la ejecución termina correctamente y su contenido
   admite representación JSON canónica.
+- Solicitudes, decisiones, argumentos originales y normalizados, estados, errores y
+  evidencia persistidos en PostgreSQL. La evidencia y el estado terminal se guardan
+  en una única transacción.
+- Ejecución cerrada por defecto ante fallos de auditoría: el adaptador no comienza
+  si no puede crearse el registro durable y la respuesta no expone evidencia si no
+  puede cerrarse ese registro.
+- Endpoint `GET /ready` ligado a la disponibilidad del almacén de auditoría.
 - Tokens libres de aprobación rechazados. Sin un verificador explícito, ninguna
   herramienta que requiera aprobación puede ejecutarse.
 
@@ -42,10 +49,11 @@ pero no coordinan varios workers, contenedores o nodos:
 
 - El límite de solicitudes usa una ventana temporal en memoria.
 - El límite de concurrencia usa un semáforo del proceso.
-- El registro de errores depende del logging local y aún no es auditoría durable.
+- El detalle técnico de excepciones depende del logging local y no está centralizado;
+  el estado y el error público de la solicitud sí quedan en la auditoría durable.
 - La política se carga desde un archivo local sin firma ni control de integridad.
-- La evidencia se devuelve con hash, pero todavía no se persiste de forma
-  append-only en PostgreSQL.
+- La auditoría se persiste en PostgreSQL, pero todavía no tiene permisos separados,
+  retención inmutable ni encadenamiento criptográfico contra alteraciones directas.
 - No existe todavía un almacén compartido de aprobaciones, usos únicos o protección
   contra replay. Por eso las acciones que requieren aprobación permanecen cerradas.
 - La API no tiene todavía autenticación, RBAC ni identidad verificable; el campo
@@ -61,7 +69,8 @@ en estos controles locales.
 2. Aprobaciones durables, ligadas al hash de argumentos canónicos, con expiración y
    consumo único atómico.
 3. Presupuestos y concurrencia compartidos entre procesos.
-4. Registro durable de ejecución, decisión, evidencia original y hashes.
+4. Endurecimiento del registro durable con roles mínimos, retención inmutable y
+   protección verificable contra alteraciones directas.
 5. Política firmada o protegida contra modificaciones no autorizadas.
 6. Pruebas específicas del adaptador, incluyendo timeout, cancelación y límites.
 7. Revisión explícita de alcance por el propietario de los activos.

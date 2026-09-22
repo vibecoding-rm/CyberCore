@@ -30,3 +30,11 @@ def test_request_limits_argument_count():
             tool="get_mock_inventory",
             arguments={f"key_{index}": index for index in range(33)},
         )
+
+
+def test_request_rejects_non_uuid_request_id():
+    with pytest.raises(ValidationError, match="uuid"):
+        ToolRequest(
+            request_id="replayed-or-malformed-id",
+            tool="get_mock_inventory",
+        )

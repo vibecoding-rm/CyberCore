@@ -41,6 +41,7 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
+   python3 -m scripts.migrate_db
    uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
    ```
 
@@ -50,6 +51,7 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 
 ```bash
 curl -s http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8080/ready
 curl -s -X POST http://127.0.0.1:8080/v1/tools/execute \
   -H 'Content-Type: application/json' \
   -d '{"tool":"get_mock_inventory","arguments":{"target":"192.168.10.25"},"requested_by":"maikel"}'
@@ -64,6 +66,8 @@ curl -s -X POST http://127.0.0.1:8080/v1/tools/execute \
 ```
 
 La segunda solicitud debe ser rechazada porque `8.8.8.8` no está dentro de las redes privadas autorizadas.
+Tanto la ejecución permitida como la solicitud rechazada quedan registradas en
+PostgreSQL. Si el registro durable no está disponible, el adaptador no se ejecuta.
 
 ## Orden recomendado
 

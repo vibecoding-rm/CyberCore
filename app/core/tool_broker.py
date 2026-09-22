@@ -1,8 +1,9 @@
 import asyncio
+from copy import deepcopy
+from collections import deque
 import hashlib
 import json
 import logging
-from collections import deque
 from math import isfinite
 from time import monotonic
 from typing import Any
@@ -10,7 +11,8 @@ from unicodedata import normalize
 
 from pydantic import ValidationError
 
-from app.api.models import Evidence, ToolRequest, ToolResponse
+from app.api.models import Evidence, PolicyDecision, ToolRequest, ToolResponse
+from app.core.audit import ExecutionJournal, ExecutionStart
 from app.core.policy import PolicyEngine
 from app.tools.base import ToolAdapter
 
@@ -23,6 +25,7 @@ class ToolBroker:
         self,
         policy: PolicyEngine,
         tools: list[ToolAdapter],
+        journal: ExecutionJournal,
         tool_mode: str = "mock",
     ):
         if tool_mode != "mock":
@@ -36,18 +39,26 @@ class ToolBroker:
 
         self.policy = policy
         self.tools = {tool.name: tool for tool in tools}
+        self.journal = journal
         self.tool_mode = tool_mode
         self._parallel_jobs = asyncio.Semaphore(policy.budgets.max_parallel_jobs)
         self._request_times: deque[float] = deque()
 
     async def execute(self, request: ToolRequest) -> ToolResponse:
+        original_arguments = deepcopy(request.arguments)
+
         if not self._reserve_request():
             decision = self.policy.deny(
                 request.tool,
                 "Se alcanzó el límite de solicitudes por hora",
             )
-            return ToolResponse(
-                request_id=request.request_id, status="denied", decision=decision
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="denied",
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request, original_arguments, None, response
             )
 
         tool = self.tools.get(request.tool)
@@ -60,14 +71,20 @@ class ToolBroker:
             )
             if not decision.allowed:
                 status = "approval_required" if decision.approval_required else "denied"
-                return ToolResponse(
-                    request_id=request.request_id, status=status, decision=decision
+                response = ToolResponse(
+                    request_id=request.request_id,
+                    status=status,
+                    decision=decision,
                 )
-            return ToolResponse(
-                request_id=request.request_id,
-                status="failed",
-                decision=decision,
-                error="El adaptador permitido no está cargado",
+            else:
+                response = ToolResponse(
+                    request_id=request.request_id,
+                    status="failed",
+                    decision=decision,
+                    error="El adaptador permitido no está cargado",
+                )
+            return await self._record_terminal(
+                request, original_arguments, None, response
             )
 
         try:
@@ -78,8 +95,13 @@ class ToolBroker:
                 request.tool,
                 f"Argumentos inválidos para la herramienta: {self._validation_summary(exc)}",
             )
-            return ToolResponse(
-                request_id=request.request_id, status="denied", decision=decision
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="denied",
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request, original_arguments, None, response
             )
 
         decision = self.policy.evaluate(
@@ -90,8 +112,16 @@ class ToolBroker:
         )
         if not decision.allowed:
             status = "approval_required" if decision.approval_required else "denied"
-            return ToolResponse(
-                request_id=request.request_id, status=status, decision=decision
+            response = ToolResponse(
+                request_id=request.request_id,
+                status=status,
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
             )
 
         timeout = min(
@@ -101,14 +131,77 @@ class ToolBroker:
             decision = self.policy.deny(
                 request.tool, "El timeout del adaptador no es válido"
             )
-            return ToolResponse(
-                request_id=request.request_id, status="denied", decision=decision
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="denied",
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
             )
 
         try:
+            await self.journal.begin(
+                ExecutionStart(
+                    execution_id=request.request_id,
+                    requested_by=request.requested_by,
+                    tool_name=request.tool,
+                    original_arguments=original_arguments,
+                    normalized_arguments=canonical_arguments,
+                    policy_decision=decision,
+                    status="running",
+                )
+            )
+        except Exception:
+            logger.exception(
+                "No se pudo iniciar la auditoría de %s", request.request_id
+            )
+            return ToolResponse(
+                request_id=request.request_id,
+                status="failed",
+                decision=decision,
+                error="Ejecución cancelada: la auditoría durable no está disponible",
+            )
+
+        response = await self._execute_adapter(
+            request,
+            canonical_arguments,
+            decision,
+            timeout,
+        )
+
+        try:
+            await self.journal.finish(
+                request.request_id,
+                response.status,
+                response.evidence,
+                response.error,
+            )
+        except Exception:
+            logger.exception("No se pudo cerrar la auditoría de %s", request.request_id)
+            return ToolResponse(
+                request_id=request.request_id,
+                status="failed",
+                decision=decision,
+                error="La ejecución terminó, pero no pudo cerrarse la auditoría durable",
+            )
+
+        return response
+
+    async def _execute_adapter(
+        self,
+        request: ToolRequest,
+        canonical_arguments: dict[str, Any],
+        decision: PolicyDecision,
+        timeout: float,
+    ) -> ToolResponse:
+        try:
             async with self._parallel_jobs:
                 result: dict[str, Any] = await asyncio.wait_for(
-                    tool.execute(canonical_arguments),
+                    self.tools[request.tool].execute(canonical_arguments),
                     timeout=timeout,
                 )
             canonical_result = self.canonical_json(result)
@@ -144,6 +237,33 @@ class ToolBroker:
                 decision=decision,
                 error="El adaptador falló de forma controlada",
             )
+
+    async def _record_terminal(
+        self,
+        request: ToolRequest,
+        original_arguments: dict[str, Any],
+        normalized_arguments: dict[str, Any] | None,
+        response: ToolResponse,
+    ) -> ToolResponse:
+        try:
+            await self.journal.begin(
+                ExecutionStart(
+                    execution_id=request.request_id,
+                    requested_by=request.requested_by,
+                    tool_name=request.tool,
+                    original_arguments=original_arguments,
+                    normalized_arguments=normalized_arguments,
+                    policy_decision=response.decision,
+                    status=response.status,
+                    error=response.error,
+                )
+            )
+        except Exception:
+            logger.exception("No se pudo auditar la solicitud %s", request.request_id)
+            return response.model_copy(
+                update={"error": "No se pudo persistir el registro de auditoría"}
+            )
+        return response
 
     @staticmethod
     def canonicalize_arguments(arguments: dict[str, Any]) -> dict[str, Any]:

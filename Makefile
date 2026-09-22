@@ -1,10 +1,13 @@
-.PHONY: install test run compose-up compose-down
+.PHONY: install test migrate run compose-up compose-down
 
 install:
 	python3 -m pip install -r requirements.txt
 
 test:
 	python3 -m pytest -q
+
+migrate:
+	python3 -m scripts.migrate_db
 
 run:
 	uvicorn app.main:app --reload --host 127.0.0.1 --port 8080

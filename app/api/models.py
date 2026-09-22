@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ToolRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    request_id: str = Field(default_factory=lambda: str(uuid4()))
+    request_id: UUID = Field(default_factory=uuid4)
     tool: str = Field(min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")
     arguments: dict[str, Any] = Field(default_factory=dict, max_length=32)
     requested_by: str = Field(default="operator", min_length=1, max_length=200)
@@ -38,7 +38,7 @@ class Evidence(BaseModel):
 class ToolResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    request_id: str
+    request_id: UUID
     status: Literal["completed", "denied", "approval_required", "failed"]
     decision: PolicyDecision
     evidence: Evidence | None = None

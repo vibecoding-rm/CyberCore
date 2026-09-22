@@ -1,5 +1,10 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS assets (
     id BIGSERIAL PRIMARY KEY,
     asset_key TEXT UNIQUE NOT NULL,
@@ -50,22 +55,26 @@ CREATE TABLE IF NOT EXISTS executions (
     id UUID PRIMARY KEY,
     requested_by TEXT NOT NULL,
     tool_name TEXT NOT NULL,
-    normalized_arguments JSONB NOT NULL,
+    original_arguments JSONB NOT NULL,
+    normalized_arguments JSONB,
     policy_decision JSONB NOT NULL,
-    status TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN (
+        'running', 'completed', 'denied', 'approval_required', 'failed'
+    )),
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at TIMESTAMPTZ
+    completed_at TIMESTAMPTZ,
+    error TEXT
 );
 
 CREATE TABLE IF NOT EXISTS evidence (
     id TEXT PRIMARY KEY,
-    execution_id UUID REFERENCES executions(id),
+    execution_id UUID NOT NULL REFERENCES executions(id),
     source TEXT NOT NULL,
     target TEXT NOT NULL,
     sha256 CHAR(64) NOT NULL,
     raw_data JSONB NOT NULL,
     collected_at TIMESTAMPTZ NOT NULL,
-    UNIQUE (source, target, sha256)
+    UNIQUE (execution_id, sha256)
 );
 
 CREATE TABLE IF NOT EXISTS findings (
@@ -106,5 +115,8 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE INDEX IF NOT EXISTS idx_asset_addresses_address ON asset_addresses USING gist (address inet_ops);
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_identifier ON vulnerabilities (vulnerability_id);
+CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions (started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_executions_status ON executions (status);
+CREATE INDEX IF NOT EXISTS idx_evidence_execution_id ON evidence (execution_id);
 CREATE INDEX IF NOT EXISTS idx_findings_status ON findings (status);
 CREATE INDEX IF NOT EXISTS idx_documents_fts ON documents USING gin (to_tsvector('simple', content));

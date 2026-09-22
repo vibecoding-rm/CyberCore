@@ -28,6 +28,7 @@ controles implementados y cuáles sólo son válidos dentro de un proceso local.
 
 ```bash
 make install
+make migrate
 make test
 make run
 ```
@@ -38,6 +39,9 @@ o con Docker:
 cp .env.example .env
 docker compose up --build
 ```
+
+La API aplica las migraciones antes de arrancar en Docker. `GET /ready` devuelve
+`200` sólo cuando el registro de auditoría en PostgreSQL está disponible.
 
 ## Límites
 
