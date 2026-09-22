@@ -36,6 +36,12 @@ adaptador cuyo modo no sea `mock`.
   si no puede crearse el registro durable y la respuesta no expone evidencia si no
   puede cerrarse ese registro.
 - Endpoint `GET /ready` ligado a la disponibilidad del almacén de auditoría.
+- Autenticación Bearer con claves de alta entropía conservadas únicamente como
+  hashes SHA-256 en configuración, comparación constante y cierre por defecto si no
+  hay credenciales.
+- Roles `viewer` y `operator`; sólo `operator` puede solicitar herramientas. La
+  identidad auditada se deriva de la credencial y `requested_by` no forma parte del
+  cuerpo público de la API.
 - Tokens libres de aprobación rechazados. Sin un verificador explícito, ninguna
   herramienta que requiera aprobación puede ejecutarse.
 
@@ -56,8 +62,9 @@ pero no coordinan varios workers, contenedores o nodos:
   retención inmutable ni encadenamiento criptográfico contra alteraciones directas.
 - No existe todavía un almacén compartido de aprobaciones, usos únicos o protección
   contra replay. Por eso las acciones que requieren aprobación permanecen cerradas.
-- La API no tiene todavía autenticación, RBAC ni identidad verificable; el campo
-  `requested_by` es informativo y no confiable.
+- Las credenciales se configuran localmente: todavía no existen rotación coordinada,
+  revocación durable, rate limiting por identidad ni integración con un proveedor
+  OIDC. La API no debe exponerse sin TLS en un despliegue remoto.
 - El contador horario se reinicia al reiniciar el proceso.
 
 No se debe ejecutar más de un worker ni exponer la API fuera de loopback basándose
@@ -65,7 +72,8 @@ en estos controles locales.
 
 ## Condiciones antes de habilitar un adaptador real
 
-1. Autenticación y autorización verificables.
+1. Ciclo de vida de credenciales para despliegue: TLS, rotación y revocación durable
+   o integración con un proveedor de identidad.
 2. Aprobaciones durables, ligadas al hash de argumentos canónicos, con expiración y
    consumo único atómico.
 3. Presupuestos y concurrencia compartidos entre procesos.

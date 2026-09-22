@@ -28,10 +28,15 @@ controles implementados y cuáles sólo son válidos dentro de un proceso local.
 
 ```bash
 make install
+make create-api-key
 make migrate
 make test
 make run
 ```
+
+`make create-api-key` muestra una clave una sola vez y la línea con su hash que debe
+guardarse en `.env`. La clave en claro se conserva fuera del repositorio y se envía
+como `Authorization: Bearer <clave>`.
 
 o con Docker:
 
@@ -41,7 +46,8 @@ docker compose up --build
 ```
 
 La API aplica las migraciones antes de arrancar en Docker. `GET /ready` devuelve
-`200` sólo cuando el registro de auditoría en PostgreSQL está disponible.
+`200` sólo cuando el registro de auditoría y la autenticación están disponibles.
+Sin `API_CREDENTIALS_JSON`, el servicio permanece cerrado por defecto.
 
 ## Límites
 

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.api.models import ToolRequest
+from app.api.models import ToolRequest, ToolRequestInput
 
 
 def test_request_rejects_unknown_top_level_fields():
@@ -37,4 +37,15 @@ def test_request_rejects_non_uuid_request_id():
         ToolRequest(
             request_id="replayed-or-malformed-id",
             tool="get_mock_inventory",
+        )
+
+
+def test_public_request_rejects_unverified_identity():
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        ToolRequestInput.model_validate(
+            {
+                "tool": "get_mock_inventory",
+                "arguments": {"target": "192.168.10.25"},
+                "requested_by": "spoofed-admin",
+            }
         )

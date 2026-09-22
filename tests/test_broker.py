@@ -198,7 +198,11 @@ async def test_broker_executes_only_canonical_arguments():
         journal=RecordingJournal(),
     )
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
 
     assert response.status == "completed"
@@ -216,7 +220,11 @@ async def test_audit_begin_failure_prevents_adapter_execution():
     )
 
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
 
     assert response.status == "failed"
@@ -236,7 +244,11 @@ async def test_audit_finish_failure_suppresses_evidence_response():
     )
 
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
 
     assert adapter.observed is not None
@@ -256,7 +268,11 @@ async def test_denial_survives_audit_outage_without_execution():
     )
 
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "8.8.8.8"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "8.8.8.8"},
+            requested_by="test",
+        )
     )
 
     assert response.status == "denied"
@@ -272,7 +288,11 @@ async def test_adapter_timeout_fails_without_evidence():
         journal=RecordingJournal(),
     )
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
     assert response.status == "failed"
     assert response.evidence is None
@@ -287,7 +307,11 @@ async def test_non_canonical_adapter_output_fails_without_leaking_details():
         journal=RecordingJournal(),
     )
     response = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
     assert response.status == "failed"
     assert response.evidence is None
@@ -307,10 +331,18 @@ async def test_hourly_budget_counts_denied_requests(tmp_path):
     )
 
     first = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "8.8.8.8"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "8.8.8.8"},
+            requested_by="test",
+        )
     )
     second = await broker.execute(
-        ToolRequest(tool="get_mock_inventory", arguments={"target": "192.168.10.25"})
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
     )
 
     assert first.status == "denied"

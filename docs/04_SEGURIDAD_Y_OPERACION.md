@@ -16,6 +16,11 @@
 
 Usa variables de entorno o un gestor de secretos. El archivo `.env` no debe subirse a repositorios ni incluirse en informes. Rota inmediatamente cualquier token que aparezca en logs.
 
+Las claves Bearer de la API deben generarse con `scripts.create_api_credential`,
+tener alta entropía y conservarse fuera del repositorio. CyberCore almacena sólo su
+hash SHA-256. No envíes estas claves sin TLS fuera de loopback y elimina el hash de
+la configuración para revocar una credencial local.
+
 ## Datos del entorno laboral
 
 Para CAMCEL, el proyecto debe limitarse a infraestructura y términos de TI. No se deben ingerir historias clínicas, estudios, nombres de pacientes, cédulas ni contenido asistencial.

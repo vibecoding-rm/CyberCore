@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     policy_file: Path = Path("config/policy.yaml")
     database_url: str = "postgresql://cybercore:change_me@127.0.0.1:5432/cybercore"
     database_connect_timeout_seconds: int = 3
+    api_credentials_json: str = "[]"
     ollama_base_url: str = "http://localhost:11434"
     orchestrator_model: str = "qwen3.5:9b"
     analyst_model: str = "foundation-sec-8b-reasoning"

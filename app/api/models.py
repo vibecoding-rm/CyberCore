@@ -5,14 +5,17 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ToolRequest(BaseModel):
+class ToolRequestInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     request_id: UUID = Field(default_factory=uuid4)
     tool: str = Field(min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")
     arguments: dict[str, Any] = Field(default_factory=dict, max_length=32)
-    requested_by: str = Field(default="operator", min_length=1, max_length=200)
     approval_token: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class ToolRequest(ToolRequestInput):
+    requested_by: str = Field(min_length=1, max_length=100)
 
 
 class PolicyDecision(BaseModel):

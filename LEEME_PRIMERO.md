@@ -41,6 +41,8 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
+   python3 -m scripts.create_api_credential local-operator
+   # Guarda la clave y copia en .env la línea API_CREDENTIALS_JSON mostrada.
    python3 -m scripts.migrate_db
    uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
    ```
@@ -50,11 +52,13 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 ## Primera prueba segura
 
 ```bash
+export CYBERCORE_API_KEY='<clave mostrada al crear la credencial>'
 curl -s http://127.0.0.1:8080/health
 curl -s http://127.0.0.1:8080/ready
 curl -s -X POST http://127.0.0.1:8080/v1/tools/execute \
   -H 'Content-Type: application/json' \
-  -d '{"tool":"get_mock_inventory","arguments":{"target":"192.168.10.25"},"requested_by":"maikel"}'
+  -H "Authorization: Bearer ${CYBERCORE_API_KEY}" \
+  -d '{"tool":"get_mock_inventory","arguments":{"target":"192.168.10.25"}}'
 ```
 
 Prueba de bloqueo:
@@ -62,12 +66,15 @@ Prueba de bloqueo:
 ```bash
 curl -s -X POST http://127.0.0.1:8080/v1/tools/execute \
   -H 'Content-Type: application/json' \
-  -d '{"tool":"get_mock_inventory","arguments":{"target":"8.8.8.8"},"requested_by":"maikel"}'
+  -H "Authorization: Bearer ${CYBERCORE_API_KEY}" \
+  -d '{"tool":"get_mock_inventory","arguments":{"target":"8.8.8.8"}}'
 ```
 
 La segunda solicitud debe ser rechazada porque `8.8.8.8` no está dentro de las redes privadas autorizadas.
 Tanto la ejecución permitida como la solicitud rechazada quedan registradas en
 PostgreSQL. Si el registro durable no está disponible, el adaptador no se ejecuta.
+La identidad registrada se obtiene de la credencial; el cliente no puede enviar ni
+suplantar `requested_by`.
 
 ## Orden recomendado
 
