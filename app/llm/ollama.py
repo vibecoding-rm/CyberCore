@@ -94,12 +94,15 @@ class OllamaChatClient:
         response_schema: dict[str, Any],
         *,
         think: bool = False,
+        num_predict: int = 256,
+        num_ctx: int | None = None,
     ) -> ModelCompletion:
         if not model or len(model) > 200:
             raise ValueError("El nombre del modelo es inválido")
         if not messages:
             raise ValueError("La conversación no puede estar vacía")
 
+        ctx = num_ctx or self.context_tokens
         response = await self._request(
             "POST",
             "/api/chat",
@@ -111,8 +114,8 @@ class OllamaChatClient:
                 "format": response_schema,
                 "options": {
                     "temperature": 0,
-                    "num_ctx": self.context_tokens,
-                    "num_predict": 512,
+                    "num_ctx": ctx,
+                    "num_predict": num_predict,
                 },
             },
         )

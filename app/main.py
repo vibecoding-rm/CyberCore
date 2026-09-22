@@ -12,11 +12,14 @@ from app.api.models import (
     ToolRequestInput,
     ToolResponse,
 )
+from app.agent.models import AgentRunResult, OrchestratorRunRequest
+from app.agent.orchestrator import CyberCoreOrchestrator
 from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
+from app.llm.ollama import OllamaChatClient
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
@@ -73,7 +76,21 @@ async def lifespan(app: FastAPI):
         budget_coordinator=app.state.budget_coordinator,
         approval_service=app.state.approval_service,
     )
+    app.state.llm_client = OllamaChatClient(
+        base_url=settings.ollama_base_url,
+        timeout_seconds=settings.ollama_request_timeout_seconds,
+        context_tokens=settings.ollama_context_tokens,
+    )
+    app.state.orchestrator = CyberCoreOrchestrator(
+        llm_client=app.state.llm_client,
+        model_name=settings.orchestrator_model,
+        broker=app.state.broker,
+        asset_repo=app.state.asset_repository,
+        vuln_repo=app.state.vulnerability_repository,
+        analyzer=app.state.evidence_analyzer,
+    )
     yield
+    await app.state.llm_client.aclose()
 
 
 app = FastAPI(
@@ -304,4 +321,20 @@ async def get_vulnerability(
             detail=f"Vulnerabilidad {vulnerability_id} no encontrada en la base local",
         )
     return vuln
+
+
+@app.post(
+    "/v1/orchestrator/run",
+    response_model=AgentRunResult,
+)
+async def run_orchestrator(
+    request: OrchestratorRunRequest,
+    principal: Principal = Depends(require_operator),
+) -> AgentRunResult:
+    return await app.state.orchestrator.run(
+        operator_intent=request.intent,
+        requested_by=principal.subject,
+        approval_token=request.approval_token,
+    )
+
 
