@@ -9,6 +9,7 @@ from app.settings import get_settings
 
 
 MIGRATIONS_DIR = Path(__file__).parents[1] / "db" / "migrations"
+SCHEMA_PATH = Path(__file__).parents[1] / "db" / "schema.sql"
 
 
 def apply_migrations() -> None:
@@ -25,6 +26,7 @@ def apply_migrations() -> None:
             )
             """
         )
+        connection.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
         for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
             version = path.stem
