@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ import yaml
 from app.core.approvals import ApprovalService
 from app.core.audit import ExecutionStart
 from app.core.auth import ApiCredential, ApiKeyAuthenticator
+from app.core.budgets import ConcurrencyLease
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.main import app
@@ -69,6 +71,36 @@ class RecordingApprovalRepository:
         return None
 
 
+class RecordingBudgetCoordinator:
+    def __init__(self, fail_ping=False):
+        self.fail_ping = fail_ping
+        self.reservations = set()
+
+    async def reserve_request(self, request_id, max_requests):
+        if request_id in self.reservations:
+            return "duplicate"
+        if len(self.reservations) >= max_requests:
+            return "limit_reached"
+        self.reservations.add(request_id)
+        return "accepted"
+
+    async def acquire_slot(
+        self,
+        request_id,
+        max_parallel,
+        execution_timeout_seconds,
+    ):
+        return ConcurrencyLease(lease_id=uuid4(), request_id=request_id)
+
+    async def release_slot(self, lease):
+        return None
+
+    async def ping(self):
+        if self.fail_ping:
+            raise RuntimeError("budget coordinator unavailable")
+        return None
+
+
 def authenticator(subject, role, api_key):
     return ApiKeyAuthenticator(
         [
@@ -120,6 +152,9 @@ def request_body():
 @asynccontextmanager
 async def api_client():
     async with app.router.lifespan_context(app):
+        budget_coordinator = RecordingBudgetCoordinator()
+        app.state.budget_coordinator = budget_coordinator
+        app.state.broker.budget_coordinator = budget_coordinator
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport,
@@ -218,6 +253,7 @@ async def test_readiness_requires_audit_and_authentication():
         "audit": "available",
         "auth": "unconfigured",
         "approvals": "available",
+        "budgets": "available",
     }
     assert ready.status_code == 200
     assert ready.json() == {
@@ -225,6 +261,28 @@ async def test_readiness_requires_audit_and_authentication():
         "audit": "available",
         "auth": "available",
         "approvals": "available",
+        "budgets": "available",
+    }
+
+
+async def test_readiness_fails_when_budget_coordinator_is_unavailable():
+    async with api_client() as client:
+        app.state.broker.journal = RecordingJournal()
+        app.state.approval_service = ApprovalService(RecordingApprovalRepository())
+        app.state.authenticator = authenticator(
+            "verified-operator", "operator", OPERATOR_KEY
+        )
+        app.state.budget_coordinator = RecordingBudgetCoordinator(fail_ping=True)
+
+        response = await client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "audit": "available",
+        "auth": "available",
+        "approvals": "available",
+        "budgets": "unavailable",
     }
 
 
@@ -246,6 +304,7 @@ async def test_approver_issues_exact_single_use_token_for_operator(tmp_path):
             PolicyEngine(policy_path),
             [ApprovalAdapter()],
             journal=journal,
+            budget_coordinator=app.state.budget_coordinator,
             approval_service=approval_service,
         )
         approval_response = await client.post(

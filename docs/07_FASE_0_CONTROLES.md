@@ -25,7 +25,13 @@ adaptador cuyo modo no sea `mock`.
   cero normalizado y rechazo de números no finitos, tipos no JSON y colisiones de
   claves tras normalización.
 - Timeout limitado por el adaptador y por la política global.
-- Límite horario y concurrencia máxima aplicados por el broker.
+- Límite horario compartido entre workers mediante reservas serializadas en
+  PostgreSQL, con ventana basada en el reloj de la base de datos.
+- Concurrencia máxima compartida mediante leases durables y serializados. Los
+  leases vencen después del timeout de la herramienta más un margen de gracia, por
+  lo que la caída de un worker no bloquea capacidad indefinidamente.
+- `request_id` reservado una sola vez para rechazar replays sin sobrescribir la
+  auditoría original.
 - Errores internos de adaptadores ocultos al cliente y registrados en el proceso.
 - Evidencia emitida sólo cuando la ejecución termina correctamente y su contenido
   admite representación JSON canónica.
@@ -35,8 +41,8 @@ adaptador cuyo modo no sea `mock`.
 - Ejecución cerrada por defecto ante fallos de auditoría: el adaptador no comienza
   si no puede crearse el registro durable y la respuesta no expone evidencia si no
   puede cerrarse ese registro.
-- Endpoint `GET /ready` ligado a la disponibilidad de auditoría, autenticación y
-  aprobaciones.
+- Endpoint `GET /ready` ligado a la disponibilidad de auditoría, autenticación,
+  aprobaciones y coordinación de presupuestos.
 - Autenticación Bearer con claves de alta entropía conservadas únicamente como
   hashes SHA-256 en configuración, comparación constante y cierre por defecto si no
   hay credenciales.
@@ -54,13 +60,11 @@ adaptador cuyo modo no sea `mock`.
 La serialización es canónica para los tipos admitidos por CyberCore, pero no se
 declara como implementación completa de RFC 8785.
 
-## Controles que sólo valen en un proceso local
+## Límites operativos pendientes
 
-Los siguientes controles son adecuados para el MVP local con un único proceso,
-pero no coordinan varios workers, contenedores o nodos:
+Los presupuestos ya coordinan varios workers que comparten PostgreSQL. Persisten
+los siguientes límites del MVP:
 
-- El límite de solicitudes usa una ventana temporal en memoria.
-- El límite de concurrencia usa un semáforo del proceso.
 - El detalle técnico de excepciones depende del logging local y no está centralizado;
   el estado y el error público de la solicitud sí quedan en la auditoría durable.
 - La política se carga desde un archivo local sin firma ni control de integridad.
@@ -72,10 +76,9 @@ pero no coordinan varios workers, contenedores o nodos:
 - Las credenciales se configuran localmente: todavía no existen rotación coordinada,
   revocación durable, rate limiting por identidad ni integración con un proveedor
   OIDC. La API no debe exponerse sin TLS en un despliegue remoto.
-- El contador horario se reinicia al reiniciar el proceso.
 
-No se debe ejecutar más de un worker ni exponer la API fuera de loopback basándose
-en estos controles locales.
+La API no debe exponerse fuera de loopback basándose sólo en estos controles: aún
+faltan TLS y el ciclo de vida de credenciales para un despliegue remoto.
 
 ## Condiciones antes de habilitar un adaptador real
 
@@ -83,9 +86,8 @@ en estos controles locales.
    o integración con un proveedor de identidad.
 2. Procedimiento operativo que asigne aprobadores independientes y revise la
    vigencia de sus credenciales.
-3. Presupuestos y concurrencia compartidos entre procesos.
-4. Endurecimiento del registro durable con roles mínimos, retención inmutable y
+3. Endurecimiento del registro durable con roles mínimos, retención inmutable y
    protección verificable contra alteraciones directas.
-5. Política firmada o protegida contra modificaciones no autorizadas.
-6. Pruebas específicas del adaptador, incluyendo timeout, cancelación y límites.
-7. Revisión explícita de alcance por el propietario de los activos.
+4. Política firmada o protegida contra modificaciones no autorizadas.
+5. Pruebas específicas del adaptador, incluyendo timeout, cancelación y límites.
+6. Revisión explícita de alcance por el propietario de los activos.

@@ -1,12 +1,14 @@
 import asyncio
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 import yaml
 
 from app.api.models import ToolRequest
 from app.core.audit import AuditStoreError, ExecutionStart
+from app.core.budgets import BudgetStoreError, ConcurrencyLease
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.tools.mock_inventory import MockInventoryTool
@@ -52,17 +54,75 @@ class RecordingApprovalService:
         return self.result
 
 
+class RecordingBudgetCoordinator:
+    def __init__(
+        self,
+        *,
+        slot_available: bool = True,
+        fail_reserve: bool = False,
+        fail_acquire: bool = False,
+        fail_release: bool = False,
+    ):
+        self.slot_available = slot_available
+        self.fail_reserve = fail_reserve
+        self.fail_acquire = fail_acquire
+        self.fail_release = fail_release
+        self.reservations = []
+        self.acquired = []
+        self.released = []
+
+    async def reserve_request(self, request_id, max_requests):
+        if self.fail_reserve:
+            raise BudgetStoreError("reserve failed")
+        if request_id in self.reservations:
+            return "duplicate"
+        if len(self.reservations) >= max_requests:
+            return "limit_reached"
+        self.reservations.append(request_id)
+        return "accepted"
+
+    async def acquire_slot(
+        self,
+        request_id,
+        max_parallel,
+        execution_timeout_seconds,
+    ):
+        if self.fail_acquire:
+            raise BudgetStoreError("acquire failed")
+        if not self.slot_available:
+            return None
+        lease = ConcurrencyLease(lease_id=uuid4(), request_id=request_id)
+        self.acquired.append(
+            (lease, max_parallel, execution_timeout_seconds)
+        )
+        return lease
+
+    async def release_slot(self, lease):
+        if self.fail_release:
+            raise BudgetStoreError("release failed")
+        self.released.append(lease)
+
+    async def ping(self):
+        return None
+
+
 @pytest.fixture
 def journal():
     return RecordingJournal()
 
 
 @pytest.fixture
-def broker(journal):
+def budgets():
+    return RecordingBudgetCoordinator()
+
+
+@pytest.fixture
+def broker(journal, budgets):
     return ToolBroker(
         PolicyEngine("config/policy.yaml"),
         [MockInventoryTool()],
         journal=journal,
+        budget_coordinator=budgets,
     )
 
 
@@ -172,6 +232,7 @@ def test_broker_rejects_real_adapter_in_mock_mode():
             PolicyEngine("config/policy.yaml"),
             [RealAdapter()],
             journal=RecordingJournal(),
+            budget_coordinator=RecordingBudgetCoordinator(),
         )
 
 
@@ -181,6 +242,7 @@ def test_broker_rejects_live_mode_during_phase_zero():
             PolicyEngine("config/policy.yaml"),
             [],
             journal=RecordingJournal(),
+            budget_coordinator=RecordingBudgetCoordinator(),
             tool_mode="live",
         )
 
@@ -191,6 +253,7 @@ def test_broker_rejects_duplicate_adapter_names():
             PolicyEngine("config/policy.yaml"),
             [FakeAdapter(), FakeAdapter()],
             journal=RecordingJournal(),
+            budget_coordinator=RecordingBudgetCoordinator(),
         )
 
 
@@ -218,6 +281,7 @@ async def test_broker_executes_only_canonical_arguments():
         PolicyEngine("config/policy.yaml"),
         [adapter],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
     response = await broker.execute(
         ToolRequest(
@@ -239,6 +303,7 @@ async def test_audit_begin_failure_prevents_adapter_execution():
         PolicyEngine("config/policy.yaml"),
         [adapter],
         journal=RecordingJournal(fail_begin=True),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     response = await broker.execute(
@@ -263,6 +328,7 @@ async def test_audit_finish_failure_suppresses_evidence_response():
         PolicyEngine("config/policy.yaml"),
         [adapter],
         journal=journal,
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     response = await broker.execute(
@@ -287,6 +353,7 @@ async def test_denial_survives_audit_outage_without_execution():
         PolicyEngine("config/policy.yaml"),
         [adapter],
         journal=RecordingJournal(fail_begin=True),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     response = await broker.execute(
@@ -308,6 +375,7 @@ async def test_adapter_timeout_fails_without_evidence():
         PolicyEngine("config/policy.yaml"),
         [SlowAdapter()],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
     response = await broker.execute(
         ToolRequest(
@@ -327,6 +395,7 @@ async def test_non_canonical_adapter_output_fails_without_leaking_details():
         PolicyEngine("config/policy.yaml"),
         [NonFiniteResultAdapter()],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
     response = await broker.execute(
         ToolRequest(
@@ -350,6 +419,7 @@ async def test_hourly_budget_counts_denied_requests(tmp_path):
         PolicyEngine(policy_path),
         [FakeAdapter()],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     first = await broker.execute(
@@ -372,6 +442,78 @@ async def test_hourly_budget_counts_denied_requests(tmp_path):
     assert "límite de solicitudes" in second.decision.reason
 
 
+@pytest.mark.asyncio
+async def test_duplicate_request_id_is_denied_without_overwriting_audit():
+    journal = RecordingJournal()
+    budgets = RecordingBudgetCoordinator()
+    broker = ToolBroker(
+        PolicyEngine("config/policy.yaml"),
+        [FakeAdapter()],
+        journal=journal,
+        budget_coordinator=budgets,
+    )
+    request = ToolRequest(
+        tool="get_mock_inventory",
+        arguments={"target": "192.168.10.25"},
+        requested_by="test",
+    )
+
+    first = await broker.execute(request)
+    duplicate = await broker.execute(request)
+
+    assert first.status == "completed"
+    assert duplicate.status == "denied"
+    assert "request_id" in duplicate.decision.reason
+    assert len(journal.started) == 1
+
+
+@pytest.mark.asyncio
+async def test_budget_store_outage_fails_closed_without_execution():
+    adapter = RecordingAdapter()
+    journal = RecordingJournal()
+    broker = ToolBroker(
+        PolicyEngine("config/policy.yaml"),
+        [adapter],
+        journal=journal,
+        budget_coordinator=RecordingBudgetCoordinator(fail_reserve=True),
+    )
+
+    response = await broker.execute(
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
+    )
+
+    assert response.status == "failed"
+    assert "presupuesto compartido" in response.error
+    assert adapter.observed is None
+    assert journal.started[0].status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_lease_is_released_when_audit_begin_fails():
+    budgets = RecordingBudgetCoordinator()
+    broker = ToolBroker(
+        PolicyEngine("config/policy.yaml"),
+        [FakeAdapter()],
+        journal=RecordingJournal(fail_begin=True),
+        budget_coordinator=budgets,
+    )
+
+    response = await broker.execute(
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="test",
+        )
+    )
+
+    assert response.status == "failed"
+    assert [item[0] for item in budgets.acquired] == budgets.released
+
+
 def approval_policy(tmp_path):
     policy_path = tmp_path / "approval-policy.yaml"
     config = yaml.safe_load(Path("config/policy.yaml").read_text(encoding="utf-8"))
@@ -388,6 +530,7 @@ async def test_approval_is_consumed_with_canonical_argument_hash(tmp_path):
         approval_policy(tmp_path),
         [adapter],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
         approval_service=approvals,
     )
     request = ToolRequest(
@@ -406,6 +549,33 @@ async def test_approval_is_consumed_with_canonical_argument_hash(tmp_path):
     assert consumed[2] == "get_mock_inventory"
     assert consumed[3] == ToolBroker.arguments_sha256(adapter.observed)
     assert consumed[4] == request.request_id
+
+
+@pytest.mark.asyncio
+async def test_saturated_concurrency_does_not_consume_approval(tmp_path):
+    adapter = RecordingAdapter()
+    approvals = RecordingApprovalService(result=True)
+    broker = ToolBroker(
+        approval_policy(tmp_path),
+        [adapter],
+        journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(slot_available=False),
+        approval_service=approvals,
+    )
+
+    response = await broker.execute(
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="verified-operator",
+            approval_token="approval-token-with-at-least-32-characters",
+        )
+    )
+
+    assert response.status == "denied"
+    assert "ejecuciones paralelas" in response.decision.reason
+    assert approvals.consumed == []
+    assert adapter.observed is None
 
 
 @pytest.mark.asyncio
@@ -436,6 +606,7 @@ async def test_missing_invalid_or_unavailable_approval_never_executes(
         approval_policy(tmp_path),
         [adapter],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
         approval_service=approvals,
     )
 
@@ -459,6 +630,7 @@ def test_prepare_approval_uses_adapter_normalization(tmp_path):
         approval_policy(tmp_path),
         [RecordingAdapter()],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     arguments, arguments_sha256 = broker.prepare_approval(
@@ -475,6 +647,7 @@ def test_prepare_approval_rejects_tool_that_does_not_require_it():
         PolicyEngine("config/policy.yaml"),
         [FakeAdapter()],
         journal=RecordingJournal(),
+        budget_coordinator=RecordingBudgetCoordinator(),
     )
 
     with pytest.raises(ValueError, match="no requiere aprobación"):

@@ -44,7 +44,7 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
    python3 -m scripts.create_api_credential local-operator
    # Guarda la clave y copia en .env la línea API_CREDENTIALS_JSON mostrada.
    python3 -m scripts.migrate_db
-   uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
+   make run
    ```
 
 5. Abre `http://127.0.0.1:8080/docs`.

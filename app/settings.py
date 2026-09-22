@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     policy_file: Path = Path("config/policy.yaml")
     database_url: str = "postgresql://cybercore:change_me@127.0.0.1:5432/cybercore"
     database_connect_timeout_seconds: int = 3
+    budget_request_window_seconds: int = 3600
+    budget_lease_grace_seconds: int = 30
+    budget_key: str = "global"
     api_credentials_json: str = "[]"
     approval_max_ttl_seconds: int = 3600
     ollama_base_url: str = "http://localhost:11434"

@@ -1,11 +1,9 @@
 import asyncio
-from copy import deepcopy
-from collections import deque
 import hashlib
 import json
 import logging
+from copy import deepcopy
 from math import isfinite
-from time import monotonic
 from typing import Any
 from unicodedata import normalize
 
@@ -14,6 +12,7 @@ from pydantic import ValidationError
 from app.api.models import Evidence, PolicyDecision, ToolRequest, ToolResponse
 from app.core.approvals import ApprovalService
 from app.core.audit import ExecutionJournal, ExecutionStart
+from app.core.budgets import BudgetCoordinator, ConcurrencyLease
 from app.core.policy import PolicyEngine
 from app.tools.base import ToolAdapter
 
@@ -27,6 +26,7 @@ class ToolBroker:
         policy: PolicyEngine,
         tools: list[ToolAdapter],
         journal: ExecutionJournal,
+        budget_coordinator: BudgetCoordinator,
         approval_service: ApprovalService | None = None,
         tool_mode: str = "mock",
     ):
@@ -42,15 +42,48 @@ class ToolBroker:
         self.policy = policy
         self.tools = {tool.name: tool for tool in tools}
         self.journal = journal
+        self.budget_coordinator = budget_coordinator
         self.approval_service = approval_service
         self.tool_mode = tool_mode
-        self._parallel_jobs = asyncio.Semaphore(policy.budgets.max_parallel_jobs)
-        self._request_times: deque[float] = deque()
 
     async def execute(self, request: ToolRequest) -> ToolResponse:
         original_arguments = deepcopy(request.arguments)
 
-        if not self._reserve_request():
+        try:
+            reservation = await self.budget_coordinator.reserve_request(
+                request.request_id,
+                self.policy.budgets.max_requests_per_hour,
+            )
+        except Exception:
+            logger.exception(
+                "No se pudo reservar el presupuesto de %s", request.request_id
+            )
+            decision = self.policy.deny(
+                request.tool,
+                "El coordinador de presupuestos no está disponible",
+            )
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="failed",
+                decision=decision,
+                error="Ejecución cancelada: el presupuesto compartido no está disponible",
+            )
+            return await self._record_terminal(
+                request, original_arguments, None, response
+            )
+
+        if reservation == "duplicate":
+            decision = self.policy.deny(
+                request.tool,
+                "El request_id ya fue utilizado",
+            )
+            return ToolResponse(
+                request_id=request.request_id,
+                status="denied",
+                decision=decision,
+            )
+
+        if reservation == "limit_reached":
             decision = self.policy.deny(
                 request.tool,
                 "Se alcanzó el límite de solicitudes por hora",
@@ -59,6 +92,26 @@ class ToolBroker:
                 request_id=request.request_id,
                 status="denied",
                 decision=decision,
+            )
+            return await self._record_terminal(
+                request, original_arguments, None, response
+            )
+
+        if reservation != "accepted":
+            logger.error(
+                "El coordinador devolvió una reserva inválida para %s: %r",
+                request.request_id,
+                reservation,
+            )
+            decision = self.policy.deny(
+                request.tool,
+                "El coordinador de presupuestos devolvió un estado inválido",
+            )
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="failed",
+                decision=decision,
+                error="Ejecución cancelada: no se pudo confirmar el presupuesto",
             )
             return await self._record_terminal(
                 request, original_arguments, None, response
@@ -124,6 +177,86 @@ class ToolBroker:
                 response,
             )
 
+        pre_decision = self.policy.evaluate(request.tool, canonical_arguments)
+        if not pre_decision.allowed and (
+            not pre_decision.approval_required or not request.approval_token
+        ):
+            status = (
+                "approval_required" if pre_decision.approval_required else "denied"
+            )
+            response = ToolResponse(
+                request_id=request.request_id,
+                status=status,
+                decision=pre_decision,
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
+            )
+
+        try:
+            lease = await self.budget_coordinator.acquire_slot(
+                request.request_id,
+                self.policy.budgets.max_parallel_jobs,
+                timeout,
+            )
+        except Exception:
+            logger.exception(
+                "No se pudo adquirir capacidad para %s", request.request_id
+            )
+            decision = self.policy.deny(
+                request.tool,
+                "El coordinador de presupuestos no está disponible",
+            )
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="failed",
+                decision=decision,
+                error="Ejecución cancelada: la capacidad compartida no está disponible",
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
+            )
+
+        if lease is None:
+            decision = self.policy.deny(
+                request.tool,
+                "Se alcanzó el límite de ejecuciones paralelas",
+            )
+            response = ToolResponse(
+                request_id=request.request_id,
+                status="denied",
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
+            )
+
+        try:
+            return await self._execute_with_lease(
+                request,
+                original_arguments,
+                canonical_arguments,
+                timeout,
+            )
+        finally:
+            await self._release_lease(lease)
+
+    async def _execute_with_lease(
+        self,
+        request: ToolRequest,
+        original_arguments: dict[str, Any],
+        canonical_arguments: dict[str, Any],
+        timeout: float,
+    ) -> ToolResponse:
         decision = await self._authorize(request, canonical_arguments)
         if not decision.allowed:
             status = "approval_required" if decision.approval_required else "denied"
@@ -186,6 +319,16 @@ class ToolBroker:
             )
 
         return response
+
+    async def _release_lease(self, lease: ConcurrencyLease) -> None:
+        try:
+            await self.budget_coordinator.release_slot(lease)
+        except Exception:
+            logger.exception(
+                "No se pudo liberar el lease %s de %s",
+                lease.lease_id,
+                lease.request_id,
+            )
 
     def prepare_approval(
         self,
@@ -261,11 +404,10 @@ class ToolBroker:
         timeout: float,
     ) -> ToolResponse:
         try:
-            async with self._parallel_jobs:
-                result: dict[str, Any] = await asyncio.wait_for(
-                    self.tools[request.tool].execute(canonical_arguments),
-                    timeout=timeout,
-                )
+            result: dict[str, Any] = await asyncio.wait_for(
+                self.tools[request.tool].execute(canonical_arguments),
+                timeout=timeout,
+            )
             canonical_result = self.canonical_json(result)
             target = str(
                 canonical_arguments.get("target")
@@ -381,16 +523,6 @@ class ToolBroker:
                 normalized[canonical_key] = ToolBroker._normalize_json_value(item)
             return normalized
         raise TypeError(f"Tipo no permitido en JSON canónico: {type(value).__name__}")
-
-    def _reserve_request(self) -> bool:
-        now = monotonic()
-        one_hour_ago = now - 3600
-        while self._request_times and self._request_times[0] <= one_hour_ago:
-            self._request_times.popleft()
-        if len(self._request_times) >= self.policy.budgets.max_requests_per_hour:
-            return False
-        self._request_times.append(now)
-        return True
 
     @staticmethod
     def _validation_summary(exc: Exception) -> str:

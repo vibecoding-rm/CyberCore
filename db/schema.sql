@@ -71,6 +71,23 @@ CREATE TABLE IF NOT EXISTS approvals (
     )
 );
 
+CREATE TABLE IF NOT EXISTS request_budget_reservations (
+    budget_key TEXT NOT NULL,
+    request_id UUID NOT NULL,
+    requested_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (budget_key, request_id)
+);
+
+CREATE TABLE IF NOT EXISTS concurrency_leases (
+    budget_key TEXT NOT NULL,
+    lease_id UUID PRIMARY KEY,
+    request_id UUID NOT NULL,
+    acquired_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (budget_key, request_id),
+    CHECK (expires_at > acquired_at)
+);
+
 CREATE TABLE IF NOT EXISTS executions (
     id UUID PRIMARY KEY,
     requested_by TEXT NOT NULL,
@@ -137,6 +154,8 @@ CREATE INDEX IF NOT EXISTS idx_asset_addresses_address ON asset_addresses USING 
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_identifier ON vulnerabilities (vulnerability_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_requested_by ON approvals (requested_by, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_approvals_expires_at ON approvals (expires_at) WHERE consumed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_request_budget_requested_at ON request_budget_reservations (budget_key, requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_concurrency_leases_expires_at ON concurrency_leases (budget_key, expires_at);
 CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions (started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_executions_status ON executions (status);
 CREATE INDEX IF NOT EXISTS idx_evidence_execution_id ON evidence (execution_id);

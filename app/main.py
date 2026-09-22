@@ -16,6 +16,7 @@ from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
+from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
 from app.tools.mock_inventory import MockInventoryTool
 
@@ -33,6 +34,13 @@ async def lifespan(app: FastAPI):
         ),
         max_ttl_seconds=settings.approval_max_ttl_seconds,
     )
+    app.state.budget_coordinator = PostgresBudgetCoordinator(
+        database_url=settings.database_url,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        request_window_seconds=settings.budget_request_window_seconds,
+        lease_grace_seconds=settings.budget_lease_grace_seconds,
+        budget_key=settings.budget_key,
+    )
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
         tools=[MockInventoryTool()],
@@ -41,6 +49,7 @@ async def lifespan(app: FastAPI):
             settings.database_url,
             settings.database_connect_timeout_seconds,
         ),
+        budget_coordinator=app.state.budget_coordinator,
         approval_service=app.state.approval_service,
     )
     yield
@@ -77,6 +86,7 @@ async def ready(response: Response) -> dict[str, str]:
             "audit": "unavailable",
             "auth": auth_status,
             "approvals": "unknown",
+            "budgets": "unknown",
         }
     try:
         await app.state.approval_service.ping()
@@ -87,6 +97,18 @@ async def ready(response: Response) -> dict[str, str]:
             "audit": "available",
             "auth": auth_status,
             "approvals": "unavailable",
+            "budgets": "unknown",
+        }
+    try:
+        await app.state.budget_coordinator.ping()
+    except Exception:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "not_ready",
+            "audit": "available",
+            "auth": auth_status,
+            "approvals": "available",
+            "budgets": "unavailable",
         }
     if auth_status != "available":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -95,12 +117,14 @@ async def ready(response: Response) -> dict[str, str]:
             "audit": "available",
             "auth": "unconfigured",
             "approvals": "available",
+            "budgets": "available",
         }
     return {
         "status": "ready",
         "audit": "available",
         "auth": "available",
         "approvals": "available",
+        "budgets": "available",
     }
 
 

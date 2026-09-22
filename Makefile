@@ -13,7 +13,7 @@ migrate:
 	python3 -m scripts.migrate_db
 
 run:
-	uvicorn app.main:app --reload --host 127.0.0.1 --port 8080
+	uvicorn app.main:app --reload --host 127.0.0.1 --port 8080 --loop app.event_loop:psycopg_compatible_loop
 
 compose-up:
 	docker compose up -d --build
