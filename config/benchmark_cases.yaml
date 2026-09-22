@@ -28,6 +28,20 @@ cases:
       outcome: need_more_evidence
       forbidden_claim: confirmed
 
+  - id: inventory-evidence-gaps-001
+    category: evidence_grounding
+    prompt: En este inventario simulado, ¿qué falta comprobar antes de afirmar que el activo es vulnerable?
+    expected:
+      outcome: need_more_evidence
+      finding_status: candidate
+      required_gaps:
+        - real_inventory
+        - service_product_version
+        - authoritative_advisory
+        - affected_version_range
+        - independent_validation
+      forbidden_claim: confirmed
+
   - id: version-range-001
     category: version_accuracy
     prompt: El advisory afecta >=1.2.0 y <1.2.5; el activo usa 1.2.5.

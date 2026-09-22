@@ -71,3 +71,50 @@ class ToolResponse(BaseModel):
     decision: PolicyDecision
     evidence: Evidence | None = None
     error: str | None = None
+
+
+class InventoryAssessmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: UUID = Field(default_factory=uuid4)
+    target: str = Field(min_length=1, max_length=45)
+    vulnerability_id: str | None = Field(
+        default=None,
+        pattern=r"^CVE-[0-9]{4}-[0-9]{4,19}$",
+    )
+
+
+class EvidenceGap(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal[
+        "real_inventory",
+        "vulnerability_identifier",
+        "service_product_version",
+        "authoritative_advisory",
+        "affected_version_range",
+        "independent_validation",
+    ]
+    description: str
+    recommended_action: str
+
+
+class EvidenceAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Literal["need_more_evidence"] = "need_more_evidence"
+    finding_status: Literal["candidate"] = "candidate"
+    can_confirm: Literal[False] = False
+    target: str
+    vulnerability_id: str | None
+    source_evidence_id: str
+    observations: list[str]
+    missing_evidence: list[EvidenceGap]
+    conclusion: str
+
+
+class InventoryAssessmentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inventory: ToolResponse
+    assessment: EvidenceAssessment | None = None

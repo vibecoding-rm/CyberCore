@@ -59,6 +59,10 @@ curl -s -X POST http://127.0.0.1:8080/v1/tools/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${CYBERCORE_API_KEY}" \
   -d '{"tool":"get_mock_inventory","arguments":{"target":"192.168.10.25"}}'
+curl -s -X POST http://127.0.0.1:8080/v1/analysis/inventory \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${CYBERCORE_API_KEY}" \
+  -d '{"target":"192.168.10.25","vulnerability_id":"CVE-2026-99999"}'
 ```
 
 Prueba de bloqueo:
@@ -75,6 +79,10 @@ Tanto la ejecución permitida como la solicitud rechazada quedan registradas en
 PostgreSQL. Si el registro durable no está disponible, el adaptador no se ejecuta.
 La identidad registrada se obtiene de la credencial; el cliente no puede enviar ni
 suplantar `requested_by`.
+
+El endpoint de análisis debe responder `need_more_evidence`, mantener el estado
+`candidate` y enumerar qué falta comprobar. El CVE incluido en el ejemplo es una
+afirmación de prueba, no evidencia de que exista ni de que afecte al activo.
 
 Antes de habilitar una herramienta que requiera aprobación, configura además una
 credencial separada con `--role approver`. Los objetos generados para `operator` y

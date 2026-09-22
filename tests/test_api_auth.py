@@ -220,6 +220,49 @@ async def test_operator_identity_is_injected_into_durable_audit():
     assert journal.started[0].requested_by == "verified-operator"
 
 
+async def test_inventory_analysis_reports_missing_evidence_without_confirming():
+    journal = RecordingJournal()
+    async with api_client() as client:
+        app.state.authenticator = authenticator(
+            "verified-operator", "operator", OPERATOR_KEY
+        )
+        app.state.broker.journal = journal
+        response = await client.post(
+            "/v1/analysis/inventory",
+            headers={"Authorization": f"Bearer {OPERATOR_KEY}"},
+            json={
+                "target": "192.168.10.25",
+                "vulnerability_id": "CVE-2026-99999",
+            },
+        )
+
+    body = response.json()
+    gap_codes = {gap["code"] for gap in body["assessment"]["missing_evidence"]}
+    assert response.status_code == 200
+    assert body["inventory"]["status"] == "completed"
+    assert body["assessment"]["outcome"] == "need_more_evidence"
+    assert body["assessment"]["finding_status"] == "candidate"
+    assert body["assessment"]["can_confirm"] is False
+    assert "service_product_version" in gap_codes
+    assert journal.started[0].requested_by == "verified-operator"
+
+
+async def test_inventory_analysis_does_not_analyze_denied_target():
+    async with api_client() as client:
+        app.state.authenticator = authenticator(
+            "verified-operator", "operator", OPERATOR_KEY
+        )
+        response = await client.post(
+            "/v1/analysis/inventory",
+            headers={"Authorization": f"Bearer {OPERATOR_KEY}"},
+            json={"target": "8.8.8.8"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["inventory"]["status"] == "denied"
+    assert response.json()["assessment"] is None
+
+
 async def test_client_cannot_spoof_requested_by():
     body = request_body() | {"requested_by": "spoofed-admin"}
     async with api_client() as client:

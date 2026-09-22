@@ -152,3 +152,8 @@ La primera demostración útil no necesita autonomía total. Debe responder:
 > “En este inventario simulado, ¿qué falta comprobar antes de afirmar que el activo es vulnerable?”
 
 El sistema debe devolver una lista de evidencias faltantes y no inventar una conclusión.
+
+Esta demostración está implementada en `POST /v1/analysis/inventory`. Usa el
+adaptador simulado, conserva la decisión y la evidencia en el flujo auditado, y
+devuelve siempre `candidate`/`need_more_evidence` mientras falten producto y versión,
+advisory autoritativo, comparación de rango y validación independiente.

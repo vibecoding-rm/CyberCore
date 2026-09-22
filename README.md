@@ -59,6 +59,18 @@ La cuota horaria y la concurrencia máxima se coordinan en PostgreSQL y se compa
 entre workers. Los slots son leases con expiración basada en el reloj de la base de
 datos, de modo que un proceso caído no bloquee capacidad de forma permanente.
 
+La primera demostración funcional está disponible en `POST
+/v1/analysis/inventory`. Ejecuta únicamente el inventario simulado autorizado y
+devuelve un análisis determinista de la evidencia faltante. Una afirmación o un CVE
+aportado por el usuario nunca bastan para marcar el activo como vulnerable.
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/v1/analysis/inventory \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${CYBERCORE_API_KEY}" \
+  -d '{"target":"192.168.10.25","vulnerability_id":"CVE-2026-99999"}'
+```
+
 ## Límites
 
 - Uso exclusivo en activos propios o con autorización expresa.

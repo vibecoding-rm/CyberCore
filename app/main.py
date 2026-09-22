@@ -6,12 +6,15 @@ from app.api.auth import require_approver, require_operator
 from app.api.models import (
     ApprovalCreateRequest,
     ApprovalResponse,
+    InventoryAssessmentRequest,
+    InventoryAssessmentResponse,
     ToolRequest,
     ToolRequestInput,
     ToolResponse,
 )
 from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.auth import ApiKeyAuthenticator, Principal
+from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.settings import get_settings
@@ -41,6 +44,7 @@ async def lifespan(app: FastAPI):
         lease_grace_seconds=settings.budget_lease_grace_seconds,
         budget_key=settings.budget_key,
     )
+    app.state.evidence_analyzer = EvidenceGapAnalyzer()
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
         tools=[MockInventoryTool()],
@@ -187,3 +191,31 @@ async def execute_tool(
         requested_by=principal.subject,
     )
     return await app.state.broker.execute(verified_request)
+
+
+@app.post(
+    "/v1/analysis/inventory",
+    response_model=InventoryAssessmentResponse,
+)
+async def analyze_inventory(
+    request: InventoryAssessmentRequest,
+    principal: Principal = Depends(require_operator),
+) -> InventoryAssessmentResponse:
+    inventory = await app.state.broker.execute(
+        ToolRequest(
+            request_id=request.request_id,
+            tool="get_mock_inventory",
+            arguments={"target": request.target},
+            requested_by=principal.subject,
+        )
+    )
+    assessment = None
+    if inventory.status == "completed" and inventory.evidence is not None:
+        assessment = app.state.evidence_analyzer.analyze(
+            inventory.evidence,
+            request.vulnerability_id,
+        )
+    return InventoryAssessmentResponse(
+        inventory=inventory,
+        assessment=assessment,
+    )
