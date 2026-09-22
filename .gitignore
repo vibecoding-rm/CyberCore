@@ -1,9 +1,75 @@
+# ==============================================================================
+# CyberCore - Git Ignore Configuration
+# ==============================================================================
+
+# --- Secrets & Environment (CRITICAL: NEVER COMMIT) ---
 .env
-.venv/
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.pfx
+*.keystore
+secrets/
+credentials/
+
+# --- Python & Bytecode ---
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual Environments ---
+.venv/
+venv/
+ENV/
+env/
+.venv*/
+
+# --- Testing & Code Quality ---
 .pytest_cache/
-*.pyc
-*.log
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.mypy_cache/
+.ruff_cache/
+
+# --- Persistence & Data Directories ---
 postgres_data/
 ollama_data/
 artifacts/
+logs/
+*.log
+
+# --- IDE & OS Metadata ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
