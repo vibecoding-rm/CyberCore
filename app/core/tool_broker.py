@@ -30,13 +30,13 @@ class ToolBroker:
         approval_service: ApprovalService | None = None,
         tool_mode: str = "mock",
     ):
-        if tool_mode != "mock":
+        if tool_mode not in {"mock", "local"}:
             raise ValueError(f"Modo de herramientas inválido: {tool_mode}")
 
         names = [tool.name for tool in tools]
         if len(names) != len(set(names)):
             raise ValueError("No se permiten adaptadores con nombres duplicados")
-        if any(tool.mode != "mock" for tool in tools):
+        if tool_mode == "mock" and any(tool.mode != "mock" for tool in tools):
             raise ValueError("TOOL_MODE=mock sólo permite adaptadores simulados")
 
         self.policy = policy

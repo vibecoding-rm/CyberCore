@@ -16,12 +16,15 @@ from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
-from app.core.tool_broker import ToolBroker
+from app.core.tool_broker import ToolAdapter, ToolBroker
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
+from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
+from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
 from app.tools.mock_inventory import MockInventoryTool
+from app.tools.nmap import NmapDiscoverHostsTool, NmapInspectServicesTool
 
 
 @asynccontextmanager
@@ -44,10 +47,24 @@ async def lifespan(app: FastAPI):
         lease_grace_seconds=settings.budget_lease_grace_seconds,
         budget_key=settings.budget_key,
     )
+    app.state.asset_repository = PostgresAssetRepository(
+        database_url=settings.database_url,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+    )
+    app.state.vulnerability_repository = PostgresVulnerabilityRepository(
+        database_url=settings.database_url,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+    )
     app.state.evidence_analyzer = EvidenceGapAnalyzer()
+
+    tools: list[ToolAdapter] = [
+        MockInventoryTool(),
+        NmapDiscoverHostsTool(mode=settings.tool_mode),
+        NmapInspectServicesTool(mode=settings.tool_mode),
+    ]
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
-        tools=[MockInventoryTool()],
+        tools=tools,
         tool_mode=settings.tool_mode,
         journal=PostgresExecutionJournal(
             settings.database_url,
@@ -190,7 +207,13 @@ async def execute_tool(
         **request.model_dump(),
         requested_by=principal.subject,
     )
-    return await app.state.broker.execute(verified_request)
+    response = await app.state.broker.execute(verified_request)
+    if response.status == "completed" and response.evidence is not None:
+        try:
+            await app.state.asset_repository.record_evidence(response.evidence)
+        except Exception:
+            pass
+    return response
 
 
 @app.post(
@@ -211,11 +234,74 @@ async def analyze_inventory(
     )
     assessment = None
     if inventory.status == "completed" and inventory.evidence is not None:
+        try:
+            await app.state.asset_repository.record_evidence(inventory.evidence)
+        except Exception:
+            pass
+
+        vuln_info = None
+        if request.vulnerability_id:
+            try:
+                vuln_info = await app.state.vulnerability_repository.get_vulnerability(
+                    request.vulnerability_id
+                )
+            except Exception:
+                pass
+
         assessment = app.state.evidence_analyzer.analyze(
             inventory.evidence,
             request.vulnerability_id,
+            vulnerability_info=vuln_info,
         )
     return InventoryAssessmentResponse(
         inventory=inventory,
         assessment=assessment,
     )
+
+
+@app.get("/v1/assets")
+async def list_assets(
+    principal: Principal = Depends(require_operator),
+) -> list[dict]:
+    return await app.state.asset_repository.list_assets()
+
+
+@app.get("/v1/assets/{address}")
+async def get_asset_by_address(
+    address: str,
+    principal: Principal = Depends(require_operator),
+) -> dict:
+    asset = await app.state.asset_repository.get_asset_by_address(address)
+    if asset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Activo no encontrado para la dirección: {address}",
+        )
+    return asset
+
+
+@app.get("/v1/vulnerabilities")
+async def list_vulnerabilities(
+    limit: int = 50,
+    kev_only: bool = False,
+    principal: Principal = Depends(require_operator),
+) -> list[dict]:
+    return await app.state.vulnerability_repository.list_vulnerabilities(
+        limit=limit,
+        kev_only=kev_only,
+    )
+
+
+@app.get("/v1/vulnerabilities/{vulnerability_id}")
+async def get_vulnerability(
+    vulnerability_id: str,
+    principal: Principal = Depends(require_operator),
+) -> dict:
+    vuln = await app.state.vulnerability_repository.get_vulnerability(vulnerability_id)
+    if vuln is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vulnerabilidad {vulnerability_id} no encontrada en la base local",
+        )
+    return vuln
+

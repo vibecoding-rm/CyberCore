@@ -8,6 +8,7 @@ class EvidenceGapAnalyzer:
         self,
         evidence: Evidence,
         vulnerability_id: str | None,
+        vulnerability_info: dict[str, Any] | None = None,
     ) -> EvidenceAssessment:
         services = self._services(evidence.data)
         open_services = [service for service in services if service.get("state") == "open"]
@@ -15,6 +16,25 @@ class EvidenceGapAnalyzer:
             f"El inventario declaró {len(open_services)} servicio(s) abierto(s).",
             "La presencia de un puerto abierto no demuestra una vulnerabilidad.",
         ]
+
+        if vulnerability_info:
+            if vulnerability_info.get("kev"):
+                observations.append(
+                    f"La vulnerabilidad {vulnerability_id} está en el catálogo CISA KEV (explotación activa conocida)."
+                )
+            if vulnerability_info.get("epss") is not None:
+                epss = vulnerability_info["epss"]
+                observations.append(
+                    f"Puntaje EPSS: {epss:.4f} ({epss * 100:.2f}% de probabilidad de explotación en 30 días)."
+                )
+            if vulnerability_info.get("cvss") is not None:
+                observations.append(
+                    f"Puntuación base CVSS: {vulnerability_info['cvss']}."
+                )
+            if vulnerability_info.get("title"):
+                observations.append(
+                    f"Información de referencia: {vulnerability_info['title']}."
+                )
         missing: list[EvidenceGap] = []
 
         if evidence.data.get("source") == "simulated":
