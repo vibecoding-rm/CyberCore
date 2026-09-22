@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from ipaddress import (
     IPv4Address,
@@ -11,7 +10,7 @@ from ipaddress import (
     ip_network,
 )
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import yaml
 
@@ -22,17 +21,6 @@ IPAddress = IPv4Address | IPv6Address
 IPNetwork = IPv4Network | IPv6Network
 IPTarget = IPAddress | IPNetwork
 VALID_RISKS = {"low", "medium", "high", "critical"}
-logger = logging.getLogger(__name__)
-
-
-class ApprovalValidator(Protocol):
-    def consume(
-        self,
-        token: str,
-        requested_by: str,
-        tool_name: str,
-        arguments: dict[str, Any],
-    ) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -54,7 +42,6 @@ class PolicyEngine:
     def __init__(
         self,
         policy_path: Path | str,
-        approval_validator: ApprovalValidator | None = None,
     ):
         with Path(policy_path).open("r", encoding="utf-8") as handle:
             loaded = yaml.safe_load(handle)
@@ -63,7 +50,6 @@ class PolicyEngine:
             raise ValueError("La política debe ser un objeto YAML")
 
         self.config: dict[str, Any] = loaded
-        self.approval_validator = approval_validator
 
         scope = self.config.get("scope", {})
         if not isinstance(scope, dict):
@@ -110,8 +96,7 @@ class PolicyEngine:
         self,
         tool_name: str,
         arguments: dict[str, Any],
-        approval_token: str | None,
-        requested_by: str = "operator",
+        approval_granted: bool = False,
     ) -> PolicyDecision:
         policy = self._tool_policy(tool_name)
         if policy is None:
@@ -138,35 +123,12 @@ class PolicyEngine:
         if scope_result is not None:
             return self.deny(tool_name, scope_result)
 
-        if policy.approval:
-            if not approval_token:
-                return self.deny(
-                    tool_name,
-                    "La acción está en alcance, pero requiere aprobación humana",
-                    approval_required=True,
-                )
-            if self.approval_validator is None:
-                return self.deny(
-                    tool_name,
-                    "No existe un verificador de aprobaciones configurado",
-                    approval_required=True,
-                )
-            try:
-                approved = self.approval_validator.consume(
-                    approval_token,
-                    requested_by,
-                    tool_name,
-                    arguments,
-                )
-            except Exception:
-                logger.exception("El verificador de aprobaciones falló")
-                approved = False
-            if approved is not True:
-                return self.deny(
-                    tool_name,
-                    "La aprobación no es válida para esta solicitud",
-                    approval_required=True,
-                )
+        if policy.approval and approval_granted is not True:
+            return self.deny(
+                tool_name,
+                "La acción está en alcance, pero requiere aprobación humana",
+                approval_required=True,
+            )
 
         return PolicyDecision(
             allowed=True,
@@ -192,6 +154,13 @@ class PolicyEngine:
 
     def _tool_policy(self, tool_name: str) -> ToolPolicy | None:
         return self.tool_policies.get(tool_name)
+
+    @property
+    def requires_approver(self) -> bool:
+        return any(
+            policy.enabled and policy.approval
+            for policy in self.tool_policies.values()
+        )
 
     def _validate_scope(self, target: str) -> str | None:
         try:

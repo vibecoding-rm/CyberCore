@@ -94,31 +94,14 @@ def test_free_form_approval_token_is_never_trusted(tmp_path):
         "approval_probe",
         {"target": "192.168.10.25"},
         "yes-approve-everything",
-        "attacker",
     )
 
     assert decision.allowed is False
     assert decision.approval_required is True
-    assert "verificador" in decision.reason
+    assert "aprobación humana" in decision.reason
 
 
-class AmbiguousApprovalValidator:
-    def consume(self, token, requested_by, tool_name, arguments):
-        return "yes"
-
-
-class BrokenApprovalValidator:
-    def consume(self, token, requested_by, tool_name, arguments):
-        raise RuntimeError("approval backend unavailable")
-
-
-@pytest.mark.parametrize(
-    "validator",
-    [AmbiguousApprovalValidator(), BrokenApprovalValidator()],
-)
-def test_approval_validator_must_return_exact_true_and_must_not_raise(
-    tmp_path, validator
-):
+def test_only_exact_internal_approval_flag_can_authorize(tmp_path):
     config = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
     config["tools"]["approval_probe"] = {
         "enabled": True,
@@ -128,14 +111,13 @@ def test_approval_validator_must_return_exact_true_and_must_not_raise(
     path = tmp_path / "policy.yaml"
     path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    decision = PolicyEngine(path, approval_validator=validator).evaluate(
+    decision = PolicyEngine(path).evaluate(
         "approval_probe",
         {"target": "192.168.10.25"},
-        "candidate-token",
-        "operator",
+        approval_granted=True,
     )
 
-    assert decision.allowed is False
+    assert decision.allowed is True
     assert decision.approval_required is True
 
 
@@ -157,3 +139,13 @@ def test_string_boolean_prevents_policy_startup(tmp_path):
 
     with pytest.raises(ValueError, match="enabled debe ser booleano"):
         PolicyEngine(path)
+
+
+def test_policy_reports_when_enabled_tool_requires_approver(tmp_path):
+    config = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    config["tools"]["get_mock_inventory"]["approval_required"] = True
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    assert PolicyEngine(path).requires_approver is True
+    assert PolicyEngine(POLICY).requires_approver is False

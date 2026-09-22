@@ -10,7 +10,9 @@
 - CVSS, EPSS, KEV.
 - Findings y estados.
 - Relaciones entre activos.
-- Aprobaciones y auditoría.
+- Aprobaciones: operador, aprobador, herramienta, argumentos canónicos, hash del
+  token, expiración y solicitud que lo consumió.
+- Auditoría de solicitudes, decisiones, resultados y evidencia.
 
 ## Qué va en pgvector
 

@@ -12,6 +12,7 @@ from unicodedata import normalize
 from pydantic import ValidationError
 
 from app.api.models import Evidence, PolicyDecision, ToolRequest, ToolResponse
+from app.core.approvals import ApprovalService
 from app.core.audit import ExecutionJournal, ExecutionStart
 from app.core.policy import PolicyEngine
 from app.tools.base import ToolAdapter
@@ -26,6 +27,7 @@ class ToolBroker:
         policy: PolicyEngine,
         tools: list[ToolAdapter],
         journal: ExecutionJournal,
+        approval_service: ApprovalService | None = None,
         tool_mode: str = "mock",
     ):
         if tool_mode != "mock":
@@ -40,6 +42,7 @@ class ToolBroker:
         self.policy = policy
         self.tools = {tool.name: tool for tool in tools}
         self.journal = journal
+        self.approval_service = approval_service
         self.tool_mode = tool_mode
         self._parallel_jobs = asyncio.Semaphore(policy.budgets.max_parallel_jobs)
         self._request_times: deque[float] = deque()
@@ -66,8 +69,6 @@ class ToolBroker:
             decision = self.policy.evaluate(
                 request.tool,
                 request.arguments,
-                request.approval_token,
-                request.requested_by,
             )
             if not decision.allowed:
                 status = "approval_required" if decision.approval_required else "denied"
@@ -104,26 +105,6 @@ class ToolBroker:
                 request, original_arguments, None, response
             )
 
-        decision = self.policy.evaluate(
-            request.tool,
-            canonical_arguments,
-            request.approval_token,
-            request.requested_by,
-        )
-        if not decision.allowed:
-            status = "approval_required" if decision.approval_required else "denied"
-            response = ToolResponse(
-                request_id=request.request_id,
-                status=status,
-                decision=decision,
-            )
-            return await self._record_terminal(
-                request,
-                original_arguments,
-                canonical_arguments,
-                response,
-            )
-
         timeout = min(
             float(tool.timeout_seconds), self.policy.budgets.max_duration_seconds
         )
@@ -134,6 +115,21 @@ class ToolBroker:
             response = ToolResponse(
                 request_id=request.request_id,
                 status="denied",
+                decision=decision,
+            )
+            return await self._record_terminal(
+                request,
+                original_arguments,
+                canonical_arguments,
+                response,
+            )
+
+        decision = await self._authorize(request, canonical_arguments)
+        if not decision.allowed:
+            status = "approval_required" if decision.approval_required else "denied"
+            response = ToolResponse(
+                request_id=request.request_id,
+                status=status,
                 decision=decision,
             )
             return await self._record_terminal(
@@ -190,6 +186,72 @@ class ToolBroker:
             )
 
         return response
+
+    def prepare_approval(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> tuple[dict[str, Any], str]:
+        tool = self.tools.get(tool_name)
+        if tool is None:
+            raise ValueError("La herramienta no tiene un adaptador cargado")
+
+        try:
+            normalized = tool.validate_arguments(arguments)
+            canonical_arguments = self.canonicalize_arguments(normalized)
+        except (ValidationError, ValueError, TypeError) as exc:
+            raise ValueError(
+                f"Argumentos inválidos: {self._validation_summary(exc)}"
+            ) from exc
+
+        decision = self.policy.evaluate(tool_name, canonical_arguments)
+        if not decision.approval_required:
+            if not decision.allowed:
+                raise ValueError(decision.reason)
+            raise ValueError("La herramienta no requiere aprobación")
+
+        return canonical_arguments, self.arguments_sha256(canonical_arguments)
+
+    async def _authorize(
+        self,
+        request: ToolRequest,
+        canonical_arguments: dict[str, Any],
+    ) -> PolicyDecision:
+        decision = self.policy.evaluate(request.tool, canonical_arguments)
+        if decision.allowed or not decision.approval_required:
+            return decision
+        if not request.approval_token:
+            return decision
+        if self.approval_service is None:
+            return self.policy.deny(
+                request.tool,
+                "El almacén de aprobaciones no está disponible",
+                approval_required=True,
+            )
+
+        try:
+            approved = await self.approval_service.consume(
+                request.approval_token,
+                request.requested_by,
+                request.tool,
+                self.arguments_sha256(canonical_arguments),
+                request.request_id,
+            )
+        except Exception:
+            logger.exception("No se pudo validar la aprobación de %s", request.request_id)
+            approved = False
+
+        if approved is not True:
+            return self.policy.deny(
+                request.tool,
+                "La aprobación no es válida, expiró o ya fue utilizada",
+                approval_required=True,
+            )
+        return self.policy.evaluate(
+            request.tool,
+            canonical_arguments,
+            approval_granted=True,
+        )
 
     async def _execute_adapter(
         self,
@@ -272,6 +334,10 @@ class ToolBroker:
         if not isinstance(normalized, dict):
             raise ValueError("Los argumentos normalizados deben ser un objeto JSON")
         return normalized
+
+    @staticmethod
+    def arguments_sha256(arguments: dict[str, Any]) -> str:
+        return hashlib.sha256(ToolBroker.canonical_json(arguments)).hexdigest()
 
     @staticmethod
     def canonical_json(value: Any) -> bytes:

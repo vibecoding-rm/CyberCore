@@ -21,6 +21,11 @@ tener alta entropía y conservarse fuera del repositorio. CyberCore almacena só
 hash SHA-256. No envíes estas claves sin TLS fuera de loopback y elimina el hash de
 la configuración para revocar una credencial local.
 
+Las aprobaciones usan una identidad `approver` distinta de la identidad `operator`.
+El token de aprobación se devuelve una sola vez, no debe registrarse y expira aunque
+no se use. Si una ejecución falla después de consumirlo, debe emitirse una nueva
+aprobación; nunca se reactiva un token consumido.
+
 ## Datos del entorno laboral
 
 Para CAMCEL, el proyecto debe limitarse a infraestructura y términos de TI. No se deben ingerir historias clínicas, estudios, nombres de pacientes, cédulas ni contenido asistencial.

@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
-Role = Literal["viewer", "operator"]
+Role = Literal["viewer", "operator", "approver"]
 
 
 class ApiCredential(BaseModel):
@@ -54,6 +54,15 @@ class ApiKeyAuthenticator:
     @property
     def configured(self) -> bool:
         return bool(self.credentials)
+
+    def has_role(self, role: Role) -> bool:
+        return any(credential.role == role for credential in self.credentials)
+
+    def has_identity(self, subject: str, role: Role) -> bool:
+        return any(
+            credential.subject == subject and credential.role == role
+            for credential in self.credentials
+        )
 
     def authenticate(self, api_key: str) -> Principal | None:
         if not 32 <= len(api_key) <= 512:

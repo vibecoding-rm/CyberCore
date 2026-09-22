@@ -51,6 +51,26 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS approvals (
+    id UUID PRIMARY KEY,
+    token_sha256 CHAR(64) UNIQUE NOT NULL,
+    requested_by TEXT NOT NULL,
+    approved_by TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    normalized_arguments JSONB NOT NULL,
+    arguments_sha256 CHAR(64) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    consumed_by_request_id UUID,
+    CHECK (expires_at > created_at),
+    CHECK (requested_by <> approved_by),
+    CHECK (
+        (consumed_at IS NULL AND consumed_by_request_id IS NULL)
+        OR (consumed_at IS NOT NULL AND consumed_by_request_id IS NOT NULL)
+    )
+);
+
 CREATE TABLE IF NOT EXISTS executions (
     id UUID PRIMARY KEY,
     requested_by TEXT NOT NULL,
@@ -115,6 +135,8 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE INDEX IF NOT EXISTS idx_asset_addresses_address ON asset_addresses USING gist (address inet_ops);
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_identifier ON vulnerabilities (vulnerability_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_requested_by ON approvals (requested_by, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_approvals_expires_at ON approvals (expires_at) WHERE consumed_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions (started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_executions_status ON executions (status);
 CREATE INDEX IF NOT EXISTS idx_evidence_execution_id ON evidence (execution_id);

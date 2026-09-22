@@ -35,15 +35,21 @@ adaptador cuyo modo no sea `mock`.
 - Ejecución cerrada por defecto ante fallos de auditoría: el adaptador no comienza
   si no puede crearse el registro durable y la respuesta no expone evidencia si no
   puede cerrarse ese registro.
-- Endpoint `GET /ready` ligado a la disponibilidad del almacén de auditoría.
+- Endpoint `GET /ready` ligado a la disponibilidad de auditoría, autenticación y
+  aprobaciones.
 - Autenticación Bearer con claves de alta entropía conservadas únicamente como
   hashes SHA-256 en configuración, comparación constante y cierre por defecto si no
   hay credenciales.
-- Roles `viewer` y `operator`; sólo `operator` puede solicitar herramientas. La
+- Roles `viewer`, `operator` y `approver`; sólo `operator` puede solicitar
+  herramientas y sólo `approver` puede emitir una aprobación para otro sujeto. La
   identidad auditada se deriva de la credencial y `requested_by` no forma parte del
-  cuerpo público de la API.
-- Tokens libres de aprobación rechazados. Sin un verificador explícito, ninguna
-  herramienta que requiera aprobación puede ejecutarse.
+  cuerpo público de ejecución.
+- Aprobaciones persistidas en PostgreSQL con el hash del token, operador, aprobador,
+  herramienta, argumentos normalizados, hash canónico y expiración basada en el
+  reloj de la base de datos.
+- Consumo único mediante actualización condicional atómica. Replay, expiración o
+  cambios de operador, herramienta o argumentos se rechazan con la misma respuesta.
+- Tokens libres de aprobación rechazados; el texto del token nunca se persiste.
 
 La serialización es canónica para los tipos admitidos por CyberCore, pero no se
 declara como implementación completa de RFC 8785.
@@ -60,8 +66,9 @@ pero no coordinan varios workers, contenedores o nodos:
 - La política se carga desde un archivo local sin firma ni control de integridad.
 - La auditoría se persiste en PostgreSQL, pero todavía no tiene permisos separados,
   retención inmutable ni encadenamiento criptográfico contra alteraciones directas.
-- No existe todavía un almacén compartido de aprobaciones, usos únicos o protección
-  contra replay. Por eso las acciones que requieren aprobación permanecen cerradas.
+- El token se consume antes de abrir la ejecución en el journal. Si la auditoría no
+  puede iniciarse, no se ejecuta el adaptador y el token permanece consumido por
+  seguridad; el aprobador debe emitir uno nuevo.
 - Las credenciales se configuran localmente: todavía no existen rotación coordinada,
   revocación durable, rate limiting por identidad ni integración con un proveedor
   OIDC. La API no debe exponerse sin TLS en un despliegue remoto.
@@ -74,8 +81,8 @@ en estos controles locales.
 
 1. Ciclo de vida de credenciales para despliegue: TLS, rotación y revocación durable
    o integración con un proveedor de identidad.
-2. Aprobaciones durables, ligadas al hash de argumentos canónicos, con expiración y
-   consumo único atómico.
+2. Procedimiento operativo que asigne aprobadores independientes y revise la
+   vigencia de sus credenciales.
 3. Presupuestos y concurrencia compartidos entre procesos.
 4. Endurecimiento del registro durable con roles mínimos, retención inmutable y
    protección verificable contra alteraciones directas.

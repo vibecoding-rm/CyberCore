@@ -18,6 +18,31 @@ class ToolRequest(ToolRequestInput):
     requested_by: str = Field(min_length=1, max_length=100)
 
 
+class ApprovalCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requested_by: str = Field(
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-zA-Z0-9._-]+$",
+    )
+    tool: str = Field(min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")
+    arguments: dict[str, Any] = Field(default_factory=dict, max_length=32)
+    expires_in_seconds: int = Field(default=900, ge=60, le=86400)
+
+
+class ApprovalResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: UUID
+    approval_token: str
+    requested_by: str
+    approved_by: str
+    tool: str
+    arguments_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expires_at: datetime
+
+
 class PolicyDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -12,7 +12,7 @@ def main() -> None:
     parser.add_argument("subject", help="Identidad estable, por ejemplo maikel")
     parser.add_argument(
         "--role",
-        choices=("viewer", "operator"),
+        choices=("viewer", "operator", "approver"),
         default="operator",
     )
     args = parser.parse_args()

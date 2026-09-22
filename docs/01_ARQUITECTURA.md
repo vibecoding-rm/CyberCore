@@ -49,11 +49,14 @@ En el MVP pueden convivir algunos servicios, pero el diseño no debe suponer que
 
 La aprobación debe estar ligada a:
 
-- Usuario.
+- Operador autorizado y aprobador independiente.
 - Herramienta.
 - Objetivo exacto.
 - Argumentos normalizados.
 - Fecha de expiración.
 - Uso único.
 
-Un texto como “sí, aprueba todo” no debe convertirse en autorización indefinida.
+El token se entrega una sola vez y PostgreSQL conserva únicamente su hash. Su consumo
+es un `UPDATE` condicional atómico; un replay, cambio de identidad, herramienta o
+argumentos no autoriza la ejecución. Un texto como “sí, aprueba todo” no debe
+convertirse en autorización indefinida.

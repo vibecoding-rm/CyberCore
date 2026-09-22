@@ -1,13 +1,21 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 
-from app.api.auth import require_operator
-from app.api.models import ToolRequest, ToolRequestInput, ToolResponse
+from app.api.auth import require_approver, require_operator
+from app.api.models import (
+    ApprovalCreateRequest,
+    ApprovalResponse,
+    ToolRequest,
+    ToolRequestInput,
+    ToolResponse,
+)
+from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.settings import get_settings
+from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_journal import PostgresExecutionJournal
 from app.tools.mock_inventory import MockInventoryTool
 
@@ -18,6 +26,13 @@ async def lifespan(app: FastAPI):
     app.state.authenticator = ApiKeyAuthenticator.from_json(
         settings.api_credentials_json
     )
+    app.state.approval_service = ApprovalService(
+        PostgresApprovalRepository(
+            settings.database_url,
+            settings.database_connect_timeout_seconds,
+        ),
+        max_ttl_seconds=settings.approval_max_ttl_seconds,
+    )
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
         tools=[MockInventoryTool()],
@@ -26,6 +41,7 @@ async def lifespan(app: FastAPI):
             settings.database_url,
             settings.database_connect_timeout_seconds,
         ),
+        approval_service=app.state.approval_service,
     )
     yield
 
@@ -45,8 +61,12 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready")
 async def ready(response: Response) -> dict[str, str]:
+    approver_available = app.state.authenticator.has_role("approver")
     auth_status = (
-        "available" if app.state.authenticator.configured else "unconfigured"
+        "available"
+        if app.state.authenticator.has_role("operator")
+        and (not app.state.broker.policy.requires_approver or approver_available)
+        else "unconfigured"
     )
     try:
         await app.state.broker.journal.ping()
@@ -56,15 +76,81 @@ async def ready(response: Response) -> dict[str, str]:
             "status": "not_ready",
             "audit": "unavailable",
             "auth": auth_status,
+            "approvals": "unknown",
         }
-    if not app.state.authenticator.configured:
+    try:
+        await app.state.approval_service.ping()
+    except Exception:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "not_ready",
+            "audit": "available",
+            "auth": auth_status,
+            "approvals": "unavailable",
+        }
+    if auth_status != "available":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {
             "status": "not_ready",
             "audit": "available",
             "auth": "unconfigured",
+            "approvals": "available",
         }
-    return {"status": "ready", "audit": "available", "auth": "available"}
+    return {
+        "status": "ready",
+        "audit": "available",
+        "auth": "available",
+        "approvals": "available",
+    }
+
+
+@app.post(
+    "/v1/approvals",
+    response_model=ApprovalResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_approval(
+    request: ApprovalCreateRequest,
+    principal: Principal = Depends(require_approver),
+) -> ApprovalResponse:
+    if not app.state.authenticator.has_identity(request.requested_by, "operator"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La identidad operadora solicitada no está configurada",
+        )
+    try:
+        normalized_arguments, arguments_sha256 = app.state.broker.prepare_approval(
+            request.tool,
+            request.arguments,
+        )
+        issued = await app.state.approval_service.issue(
+            requested_by=request.requested_by,
+            approved_by=principal.subject,
+            tool_name=request.tool,
+            normalized_arguments=normalized_arguments,
+            arguments_sha256=arguments_sha256,
+            ttl_seconds=request.expires_in_seconds,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except ApprovalStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El almacén de aprobaciones no está disponible",
+        ) from exc
+
+    return ApprovalResponse(
+        approval_id=issued.approval_id,
+        approval_token=issued.approval_token,
+        requested_by=issued.requested_by,
+        approved_by=issued.approved_by,
+        tool=issued.tool_name,
+        arguments_sha256=issued.arguments_sha256,
+        expires_at=issued.expires_at,
+    )
 
 
 @app.post("/v1/tools/execute", response_model=ToolResponse)

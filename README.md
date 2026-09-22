@@ -19,8 +19,8 @@ El LLM propone acciones, pero no ejecuta comandos arbitrarios. Sólo puede solic
 
 Este starter es un MVP seguro, no un producto terminado. Incluye una herramienta simulada para validar el flujo completo sin escanear redes. Los conectores reales se agregan después de superar las pruebas de políticas.
 
-La Fase 0 fuerza `TOOL_MODE=mock`, aplica validación estricta y mantiene cerradas las
-aprobaciones no verificables. Consulta
+La Fase 0 fuerza `TOOL_MODE=mock`, aplica validación estricta y mantiene cerrados los
+adaptadores reales. Consulta
 [`docs/07_FASE_0_CONTROLES.md`](docs/07_FASE_0_CONTROLES.md) para conocer los
 controles implementados y cuáles sólo son válidos dentro de un proceso local.
 
@@ -48,6 +48,11 @@ docker compose up --build
 La API aplica las migraciones antes de arrancar en Docker. `GET /ready` devuelve
 `200` sólo cuando el registro de auditoría y la autenticación están disponibles.
 Sin `API_CREDENTIALS_JSON`, el servicio permanece cerrado por defecto.
+
+Las herramientas marcadas con `approval_required` sólo aceptan tokens emitidos por
+`POST /v1/approvals`. La emisión requiere una identidad con rol `approver`, debe
+autorizar a otra identidad `operator` y queda ligada a la herramienta, los argumentos
+canónicos y una expiración. El token se consume de forma atómica una sola vez.
 
 ## Límites
 

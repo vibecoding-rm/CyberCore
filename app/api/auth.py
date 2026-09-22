@@ -16,6 +16,24 @@ async def require_operator(
         Security(bearer_scheme),
     ],
 ) -> Principal:
+    return _require_role(request, credentials, "operator")
+
+
+async def require_approver(
+    request: Request,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Security(bearer_scheme),
+    ],
+) -> Principal:
+    return _require_role(request, credentials, "approver")
+
+
+def _require_role(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+    required_role: str,
+) -> Principal:
     authenticator: ApiKeyAuthenticator = request.app.state.authenticator
     if not authenticator.configured:
         raise HTTPException(
@@ -29,10 +47,10 @@ async def require_operator(
     principal = authenticator.authenticate(credentials.credentials)
     if principal is None:
         raise _unauthorized()
-    if principal.role != "operator":
+    if principal.role != required_role:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="La identidad no tiene permiso para ejecutar herramientas",
+            detail="La identidad no tiene el rol requerido para esta operación",
         )
     return principal
 

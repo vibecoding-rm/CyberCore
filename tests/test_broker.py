@@ -30,6 +30,28 @@ class RecordingJournal:
         self.finished.append((execution_id, status, evidence, error))
 
 
+class RecordingApprovalService:
+    def __init__(self, result=False, error=None):
+        self.result = result
+        self.error = error
+        self.consumed = []
+
+    async def consume(
+        self,
+        token,
+        requested_by,
+        tool_name,
+        arguments_sha256,
+        request_id,
+    ):
+        self.consumed.append(
+            (token, requested_by, tool_name, arguments_sha256, request_id)
+        )
+        if self.error:
+            raise self.error
+        return self.result
+
+
 @pytest.fixture
 def journal():
     return RecordingJournal()
@@ -348,3 +370,115 @@ async def test_hourly_budget_counts_denied_requests(tmp_path):
     assert first.status == "denied"
     assert second.status == "denied"
     assert "límite de solicitudes" in second.decision.reason
+
+
+def approval_policy(tmp_path):
+    policy_path = tmp_path / "approval-policy.yaml"
+    config = yaml.safe_load(Path("config/policy.yaml").read_text(encoding="utf-8"))
+    config["tools"]["get_mock_inventory"]["approval_required"] = True
+    policy_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    return PolicyEngine(policy_path)
+
+
+@pytest.mark.asyncio
+async def test_approval_is_consumed_with_canonical_argument_hash(tmp_path):
+    adapter = RecordingAdapter()
+    approvals = RecordingApprovalService(result=True)
+    broker = ToolBroker(
+        approval_policy(tmp_path),
+        [adapter],
+        journal=RecordingJournal(),
+        approval_service=approvals,
+    )
+    request = ToolRequest(
+        tool="get_mock_inventory",
+        arguments={"target": "192.168.10.25"},
+        requested_by="verified-operator",
+        approval_token="approval-token-with-at-least-32-characters",
+    )
+
+    response = await broker.execute(request)
+
+    assert response.status == "completed"
+    consumed = approvals.consumed[0]
+    assert consumed[0] == request.approval_token
+    assert consumed[1] == "verified-operator"
+    assert consumed[2] == "get_mock_inventory"
+    assert consumed[3] == ToolBroker.arguments_sha256(adapter.observed)
+    assert consumed[4] == request.request_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("approval_token", "approval_result", "approval_error"),
+    [
+        (None, False, None),
+        ("invalid-token-with-at-least-32-characters", False, None),
+        (
+            "backend-error-token-with-at-least-32-characters",
+            False,
+            RuntimeError("backend unavailable"),
+        ),
+    ],
+)
+async def test_missing_invalid_or_unavailable_approval_never_executes(
+    tmp_path,
+    approval_token,
+    approval_result,
+    approval_error,
+):
+    adapter = RecordingAdapter()
+    approvals = RecordingApprovalService(
+        result=approval_result,
+        error=approval_error,
+    )
+    broker = ToolBroker(
+        approval_policy(tmp_path),
+        [adapter],
+        journal=RecordingJournal(),
+        approval_service=approvals,
+    )
+
+    response = await broker.execute(
+        ToolRequest(
+            tool="get_mock_inventory",
+            arguments={"target": "192.168.10.25"},
+            requested_by="verified-operator",
+            approval_token=approval_token,
+        )
+    )
+
+    assert response.status == "approval_required"
+    assert response.evidence is None
+    assert adapter.observed is None
+    assert len(approvals.consumed) == (0 if approval_token is None else 1)
+
+
+def test_prepare_approval_uses_adapter_normalization(tmp_path):
+    broker = ToolBroker(
+        approval_policy(tmp_path),
+        [RecordingAdapter()],
+        journal=RecordingJournal(),
+    )
+
+    arguments, arguments_sha256 = broker.prepare_approval(
+        "get_mock_inventory",
+        {"target": "192.168.10.25"},
+    )
+
+    assert arguments == {"a": 0.0, "target": "192.168.10.25", "z": "é"}
+    assert arguments_sha256 == ToolBroker.arguments_sha256(arguments)
+
+
+def test_prepare_approval_rejects_tool_that_does_not_require_it():
+    broker = ToolBroker(
+        PolicyEngine("config/policy.yaml"),
+        [FakeAdapter()],
+        journal=RecordingJournal(),
+    )
+
+    with pytest.raises(ValueError, match="no requiere aprobación"):
+        broker.prepare_approval(
+            "get_mock_inventory",
+            {"target": "192.168.10.25"},
+        )

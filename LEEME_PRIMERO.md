@@ -76,6 +76,12 @@ PostgreSQL. Si el registro durable no está disponible, el adaptador no se ejecu
 La identidad registrada se obtiene de la credencial; el cliente no puede enviar ni
 suplantar `requested_by`.
 
+Antes de habilitar una herramienta que requiera aprobación, configura además una
+credencial separada con `--role approver`. Los objetos generados para `operator` y
+`approver` deben convivir dentro de la misma lista `API_CREDENTIALS_JSON`. El
+aprobador usa `POST /v1/approvals`; la clave devuelta se muestra una sola vez y sólo
+sirve para el operador, herramienta y argumentos exactos autorizados.
+
 ## Orden recomendado
 
 1. Ejecutar el modo simulado y sus pruebas.
