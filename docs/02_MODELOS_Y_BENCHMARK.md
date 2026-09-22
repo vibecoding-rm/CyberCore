@@ -38,6 +38,32 @@ Un modelo sólo puede recibir acceso a herramientas si:
 
 El modelo nunca sustituye los controles deterministas.
 
+## Runner implementado
+
+`python -m scripts.run_model_benchmark` ejecuta el conjunto declarado en
+`config/benchmark_cases.yaml` contra el modelo configurado en
+`ORCHESTRATOR_MODEL`. Usa `/api/chat` de Ollama con streaming desactivado,
+temperatura cero y el esquema JSON de `BenchmarkAnswer` en `format`.
+
+El runner no importa ni recibe el `ToolBroker`, no envía el campo `tools` a Ollama
+y no puede ejecutar la selección producida por el modelo. Una respuesta sólo se
+puntúa después de validar el esquema estricto. Se registran:
+
+- porcentaje de casos aprobados;
+- porcentaje de respuestas estructuradas válidas;
+- latencia por caso y promedio;
+- tokens de entrada y salida reportados por Ollama;
+- tokens generados por segundo;
+- resultado de cada expectativa del caso.
+
+El conjunto actual es una prueba inicial de siete casos, no alcanza todavía las 150
+observaciones previstas ni satisface por sí solo el criterio de promoción del 99%.
+
+En este equipo Windows de 16 GB, WSL/Docker dispone de 12 GB y el contenedor Ollama
+se limita a 10 GB. `qwen3.5:9b` cuantizado ocupa alrededor de 6 GB antes de sumar
+contexto y runtime, por lo que el runner fija inicialmente `OLLAMA_CONTEXT_TOKENS`
+en 8192.
+
 ## Diseño del conjunto
 
 - 40 casos de selección de herramientas.

@@ -49,6 +49,28 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 
 5. Abre `http://127.0.0.1:8080/docs`.
 
+Para evaluar el orquestador sin darle herramientas:
+
+```bash
+docker compose --profile models up -d ollama
+docker compose exec ollama ollama pull qwen3.5:9b
+python -m scripts.run_model_benchmark
+```
+
+En Windows con Docker Desktop, guarda esta configuración en
+`%USERPROFILE%\.wslconfig`:
+
+```ini
+[wsl2]
+memory=12GB
+```
+
+Después reinicia WSL antes de descargar el modelo:
+
+```powershell
+wsl --shutdown
+```
+
 ## Primera prueba segura
 
 ```bash

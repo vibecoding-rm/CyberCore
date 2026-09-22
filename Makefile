@@ -1,4 +1,4 @@
-.PHONY: install test create-api-key migrate run compose-up compose-down
+.PHONY: install test create-api-key migrate run benchmark-model compose-up compose-down
 
 install:
 	python3 -m pip install -r requirements.txt
@@ -14,6 +14,9 @@ migrate:
 
 run:
 	uvicorn app.main:app --reload --host 127.0.0.1 --port 8080 --loop app.event_loop:psycopg_compatible_loop
+
+benchmark-model:
+	python3 -m scripts.run_model_benchmark
 
 compose-up:
 	docker compose up -d --build

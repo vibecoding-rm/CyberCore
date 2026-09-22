@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     api_credentials_json: str = "[]"
     approval_max_ttl_seconds: int = 3600
     ollama_base_url: str = "http://localhost:11434"
+    ollama_request_timeout_seconds: int = 120
+    ollama_context_tokens: int = 8192
     orchestrator_model: str = "qwen3.5:9b"
     analyst_model: str = "foundation-sec-8b-reasoning"
     tool_mode: Literal["mock"] = "mock"

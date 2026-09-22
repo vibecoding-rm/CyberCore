@@ -71,6 +71,26 @@ curl -s -X POST http://127.0.0.1:8080/v1/analysis/inventory \
   -d '{"target":"192.168.10.25","vulnerability_id":"CVE-2026-99999"}'
 ```
 
+## Evaluación local del orquestador
+
+La Fase 1 evalúa el modelo sin conectarlo al broker. El runner envía únicamente los
+prompts de CyberCAM-Bench y un esquema JSON; no registra funciones ni expone
+credenciales o herramientas ejecutables.
+
+```bash
+docker compose --profile models up -d ollama
+docker compose exec ollama ollama pull qwen3.5:9b
+python -m scripts.run_model_benchmark
+```
+
+En esta PC Docker/WSL está configurado con 12 GB y el contenedor Ollama tiene un
+límite de 10 GB. El benchmark limita el contexto a 8192 tokens para no agotar la
+memoria del host.
+
+El informe JSON incluye respuestas válidas, aciertos, latencia y tokens por segundo.
+El comando termina con código `0` si pasan todos los casos, `2` si hay fallos del
+modelo y `1` si Ollama o el modelo no están disponibles.
+
 ## Límites
 
 - Uso exclusivo en activos propios o con autorización expresa.
