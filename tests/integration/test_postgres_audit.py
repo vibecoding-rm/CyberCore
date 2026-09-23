@@ -132,6 +132,9 @@ async def cleanup(execution_id):
     if not DATABASE_URL:
         return
     async with await psycopg.AsyncConnection.connect(DATABASE_URL) as connection:
+        # Evidence is append-only; test cleanup bypasses the triggers as the
+        # superuser, which is the only role able to do so.
+        await connection.execute("SET session_replication_role = replica")
         await connection.execute(
             "DELETE FROM evidence WHERE execution_id = %s", (execution_id,)
         )

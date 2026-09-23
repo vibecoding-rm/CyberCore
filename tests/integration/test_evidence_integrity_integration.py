@@ -45,7 +45,21 @@ async def test_get_evidence_verifies_sealed_hash_and_detects_tampering():
         assert loaded is not None
         assert loaded.data == data and loaded.sha256 == evidence.sha256
 
+        # Normal SQL cannot alter sealed evidence. Each attempt runs inside a
+        # forced rollback so a missing trigger could never destroy real data.
+        for statement, params in (
+            ("UPDATE evidence SET target = '8.8.8.8' WHERE id = %s", (evidence.evidence_id,)),
+            ("DELETE FROM evidence WHERE id = %s", (evidence.evidence_id,)),
+            ("TRUNCATE evidence CASCADE", None),
+        ):
+            async with await psycopg.AsyncConnection.connect(DATABASE_URL) as connection:
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    async with connection.transaction(force_rollback=True):
+                        await connection.execute(statement, params)
+
+        # ...and a superuser who disables triggers is still caught on read.
         async with await psycopg.AsyncConnection.connect(DATABASE_URL) as connection:
+            await connection.execute("SET session_replication_role = replica")
             await connection.execute(
                 """
                 UPDATE evidence

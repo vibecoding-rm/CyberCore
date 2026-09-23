@@ -1,11 +1,16 @@
+import sys
 from pathlib import Path
 
 import psycopg
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.settings import get_settings
 
 
 MIGRATIONS_DIR = Path(__file__).parents[1] / "db" / "migrations"
+# Idempotent base schema; lets migrations run on an empty database (CI).
+SCHEMA_PATH = Path(__file__).parents[1] / "db" / "schema.sql"
 
 
 def apply_migrations() -> None:
@@ -22,6 +27,7 @@ def apply_migrations() -> None:
             )
             """
         )
+        connection.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
         for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
             version = path.stem

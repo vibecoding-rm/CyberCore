@@ -213,5 +213,6 @@ La regla es determinista (`decide_status`), nunca la decide el modelo:
 - "Fuente con procedencia" = rangos NVD/OSV guardados con el hash de su registro
   original, o presencia en CISA KEV.
 
-Nota: `evidence.append_only` está declarado en la política, pero PostgreSQL no lo
-impone con triggers; la reverificación del hash al leer detecta modificaciones.
+`evidence` es de sólo inserción en PostgreSQL (migración 0006): los triggers
+rechazan `UPDATE`, `DELETE` y `TRUNCATE`. Sólo un superusuario que desactive
+triggers puede saltárselo, y aun así la reverificación del hash al leer lo detecta.
