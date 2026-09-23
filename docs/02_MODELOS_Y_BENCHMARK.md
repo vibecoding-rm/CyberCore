@@ -90,7 +90,7 @@ Selección del backend en `.env`:
 ```ini
 LLM_PROVIDER=llamacpp
 LLAMACPP_BASE_URL=http://localhost:8081
-LLAMACPP_MODEL_FILE=qwen3.5-9b-q4_k_m.gguf
+LLAMACPP_MODEL_FILE=Qwen3.5-9B-Q4_K_M.gguf
 LLAMACPP_CONTEXT_TOKENS=8192
 ```
 
