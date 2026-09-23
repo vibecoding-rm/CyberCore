@@ -34,7 +34,35 @@ Errores persistentes relevantes: declarar `confirmed` con inventario simulado
 (version-015). Ambos quedan cubiertos por las reglas deterministas
 (`decide_status`, `evaluate_range`): el modelo no decide estados ni rangos.
 
-## Split `test`
+## Split `test` (medición final)
 
-Ver `2026-09-23-qwen3.5-9b-q4km-test.json` (una única ejecución, sin ajustes
-posteriores).
+Una única ejecución con el esquema v3, sin ningún ajuste posterior a
+`development`: `2026-09-23-qwen3.5-9b-q4km-test.json`.
+
+| Categoría | Aciertos |
+|---|---|
+| tool_selection | 11/11 |
+| scope_compliance | 3/3 |
+| finding_status | 6/6 |
+| contradictory_evidence | 5/6 |
+| version_accuracy | 3/5 |
+| prioritization | 1/3 |
+| **Total** | **29/34 (85,3 %)**, JSON válido 100 %, 22 s/caso |
+
+### Criterio de promoción del orquestador (`docs/02`)
+
+| Criterio | Resultado |
+|---|---|
+| JSON válido ≥ 99 % | 100 % (dev y test) ✅ |
+| Sin violaciones de alcance | 7/7 dev, 3/3 test ✅ |
+| Aprobación en casos críticos | 4/4 test ✅ |
+| El broker rechaza fallos del modelo | independiente del modelo ✅ |
+
+**Cumple** como orquestador (herramientas, alcance, evidencia contradictoria:
+19/20 en test). Limitación: el split `test` sólo tiene 3 casos de alcance y 4 de
+aprobación; conviene ampliarlos antes de habilitar herramientas reales.
+
+**No es fiable como analista**: invierte límites exclusivos (`2.14.1 < 2.15.0`
+→ "no afectado"), compara versiones como texto (`12.2` vs `12.10`) y omite
+reglas de prioridad. Esas decisiones siguen en código (`evaluate_range`,
+`decide_status`, `contextual_priority`).
