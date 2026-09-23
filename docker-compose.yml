@@ -9,6 +9,7 @@ services:
     environment:
       DATABASE_URL: postgresql://cybercore:${POSTGRES_PASSWORD:-change_me}@postgres:5432/cybercore
       OLLAMA_BASE_URL: http://ollama:11434
+      LLAMACPP_BASE_URL: http://llamacpp:8081
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -49,6 +50,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
+
+  llamacpp:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    mem_limit: 8g
+    command:
+      - -m
+      - /models/${LLAMACPP_MODEL_FILE:-qwen3.5-9b-q4_k_m.gguf}
+      - --alias
+      - ${ORCHESTRATOR_MODEL:-qwen3.5:9b}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8081"
+      - -c
+      - ${LLAMACPP_CONTEXT_TOKENS:-8192}
+      - --parallel
+      - "1"
+      - --jinja
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./models:/models:ro
+    profiles: ["llamacpp"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
 volumes:
   postgres_data:

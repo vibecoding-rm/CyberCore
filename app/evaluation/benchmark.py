@@ -7,7 +7,7 @@ from typing import Any, Literal, Protocol
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from app.llm.ollama import ModelCompletion
+from app.llm.base import ModelCompletion
 
 
 ToolName = Literal[

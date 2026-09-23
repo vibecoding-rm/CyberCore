@@ -73,3 +73,6 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Pesos GGUF locales (llama.cpp)
+models/

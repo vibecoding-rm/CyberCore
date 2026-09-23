@@ -19,7 +19,7 @@ from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
-from app.llm.ollama import OllamaChatClient
+from app.llm.factory import create_chat_client
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
@@ -76,11 +76,7 @@ async def lifespan(app: FastAPI):
         budget_coordinator=app.state.budget_coordinator,
         approval_service=app.state.approval_service,
     )
-    app.state.llm_client = OllamaChatClient(
-        base_url=settings.ollama_base_url,
-        timeout_seconds=settings.ollama_request_timeout_seconds,
-        context_tokens=settings.ollama_context_tokens,
-    )
+    app.state.llm_client = create_chat_client(settings)
     app.state.orchestrator = CyberCoreOrchestrator(
         llm_client=app.state.llm_client,
         model_name=settings.orchestrator_model,

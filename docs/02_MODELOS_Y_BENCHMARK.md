@@ -76,3 +76,36 @@ en 8192.
 Total inicial: 150 casos.
 
 Separa `train`, `development` y `test`. El conjunto de test no se usa para ajustar prompts ni adaptadores.
+
+## Backend alternativo: llama.cpp (`llama-server`)
+
+Ollama mantiene un daemon propio, descarga y descarga modelos bajo demanda y
+reserva memoria adicional para su runtime. En un equipo de 16 GB puede resultar
+más predecible `llama-server` de llama.cpp: carga **un único GGUF** al arrancar,
+con contexto fijo, sin gestor de modelos, y expone una API compatible con OpenAI
+con salida restringida por JSON Schema (gramática).
+
+Selección del backend en `.env`:
+
+```ini
+LLM_PROVIDER=llamacpp
+LLAMACPP_BASE_URL=http://localhost:8081
+LLAMACPP_MODEL_FILE=qwen3.5-9b-q4_k_m.gguf
+LLAMACPP_CONTEXT_TOKENS=8192
+```
+
+Coloca el archivo GGUF en `./models/` (ignorado por git) y arranca:
+
+```bash
+docker compose --profile llamacpp up -d llamacpp
+python -m scripts.run_model_benchmark --provider llamacpp
+```
+
+`--alias` publica el modelo con el mismo nombre de `ORCHESTRATOR_MODEL`, de modo
+que el orquestador y el benchmark no cambian. El contexto se fija al iniciar el
+servidor (`-c`); el parámetro `num_ctx` por solicitud sólo aplica a Ollama.
+El cliente rechaza respuestas truncadas (`finish_reason=length`) y nunca envía el
+campo `tools`: igual que con Ollama, sólo el `ToolBroker` puede ejecutar.
+
+Splash (incoai/splash) se evaluó y se descartó: sólo funciona en Apple silicon con
+macOS y requiere al menos 36 GB de memoria unificada.

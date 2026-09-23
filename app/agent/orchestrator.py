@@ -12,7 +12,7 @@ from app.agent.prompts import build_agent_step_prompt
 from app.api.models import ToolRequest
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.tool_broker import ToolBroker
-from app.llm.ollama import OllamaChatClient, OllamaClientError
+from app.llm.base import ChatClient
 from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class CyberCoreOrchestrator:
     def __init__(
         self,
-        llm_client: OllamaChatClient,
+        llm_client: ChatClient,
         model_name: str,
         broker: ToolBroker,
         asset_repo: PostgresAssetRepository | None = None,

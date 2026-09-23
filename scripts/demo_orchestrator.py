@@ -10,7 +10,7 @@ from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolBroker
 from app.event_loop import configure_windows_asyncio
-from app.llm.ollama import OllamaChatClient
+from app.llm.factory import create_chat_client, llm_base_url
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
@@ -44,15 +44,12 @@ async def main() -> None:
     print("   CyberCore - Agente Orquestador Autónomo (LLM ReAct)")
     print("=" * 60)
     print(f"[*] Modelo Orquestador: {settings.orchestrator_model}")
-    print(f"[*] Ollama Base URL:    {settings.ollama_base_url}")
+    print(f"[*] Proveedor LLM:      {settings.llm_provider}")
+    print(f"[*] LLM Base URL:       {llm_base_url(settings)}")
     print(f"[*] Modo Herramientas:  {settings.tool_mode}")
     print(f"[*] Intención Operador: {args.intent}\n")
 
-    llm_client = OllamaChatClient(
-        base_url=settings.ollama_base_url,
-        timeout_seconds=settings.ollama_request_timeout_seconds,
-        context_tokens=settings.ollama_context_tokens,
-    )
+    llm_client = create_chat_client(settings)
 
     budget_coordinator = PostgresBudgetCoordinator(
         database_url=settings.database_url,

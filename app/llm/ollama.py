@@ -3,21 +3,13 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.llm.base import LLMClientError, ModelCompletion
 
-class OllamaClientError(RuntimeError):
+__all__ = ["ModelCompletion", "OllamaChatClient", "OllamaClientError"]
+
+
+class OllamaClientError(LLMClientError):
     """Raised when Ollama is unavailable or returns an invalid response."""
-
-
-class ModelCompletion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str
-    model: str
-    total_duration_ns: int | None = Field(default=None, ge=0)
-    load_duration_ns: int | None = Field(default=None, ge=0)
-    prompt_eval_count: int | None = Field(default=None, ge=0)
-    eval_count: int | None = Field(default=None, ge=0)
-    eval_duration_ns: int | None = Field(default=None, ge=0)
 
 
 class _ChatMessage(BaseModel):
