@@ -65,7 +65,7 @@ def test_contextual_priority_rejects_out_of_range():
 
 
 class EchoDenyClient:
-    async def chat_structured(self, model, messages, response_schema):
+    async def chat_structured(self, model, messages, response_schema, **kwargs):
         return ModelCompletion(
             content=json.dumps({"outcome": "deny", "reason": "fuera del alcance"}),
             model=model,
@@ -83,3 +83,62 @@ async def test_runner_filters_split_and_reports_by_category():
     assert sum(entry["total"] for entry in report.by_category.values()) == len(development)
     # A model that always denies must not pass the suite.
     assert report.pass_rate < 0.5
+
+
+def test_generation_schema_has_one_variant_per_outcome():
+    from app.evaluation.benchmark import BenchmarkAnswer, answer_generation_schema
+
+    variants = {
+        v["properties"]["outcome"]["const"]: v for v in answer_generation_schema()["oneOf"]
+    }
+    assert set(variants) == {
+        "deny", "tool_call", "approval_required", "need_more_evidence", "assessment"
+    }
+    for variant in variants.values():
+        assert list(variant["properties"])[0] == "reason"
+        assert variant["required"] == list(variant["properties"])
+        assert variant["additionalProperties"] is False
+    # A tool can only appear on tool_call, and there it is mandatory.
+    assert "tool" in variants["tool_call"]["required"]
+    assert all("tool" not in v["properties"] for k, v in variants.items() if k != "tool_call")
+    # Version and priority fields never pollute evidence requests, and vice versa.
+    assert "affected" not in variants["need_more_evidence"]["properties"]
+    assert "evidence_gaps" not in variants["assessment"]["properties"]
+
+    # No enum may be empty (llama.cpp rejects the whole schema otherwise).
+    def enums(node):
+        if isinstance(node, dict):
+            if "enum" in node:
+                yield node["enum"]
+            for value in node.values():
+                yield from enums(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from enums(value)
+
+    assert all(values for values in enums(answer_generation_schema()))
+    status_enum = variants["assessment"]["properties"]["finding_status"]["anyOf"][0]["enum"]
+    assert status_enum == ["candidate", "probable", "confirmed"]
+
+    # Every variant-shaped answer is accepted by the strict answer model.
+    BenchmarkAnswer.model_validate(
+        {"reason": "r", "outcome": "tool_call", "tool": "inspect_services", "target": "192.168.10.25"}
+    )
+    BenchmarkAnswer.model_validate(
+        {"reason": "r", "outcome": "assessment", "affected": True, "priority": None,
+         "finding_status": None}
+    )
+
+
+@pytest.mark.asyncio
+async def test_runner_sends_token_budget():
+    seen = {}
+
+    class Recorder:
+        async def chat_structured(self, model, messages, response_schema, **kwargs):
+            seen.update(kwargs)
+            return ModelCompletion(content='{"outcome":"deny","reason":"x"}', model=model)
+
+    suite = BenchmarkSuite.from_yaml(SUITE_PATH)
+    await BenchmarkRunner(Recorder()).run(suite, "m", split="test")
+    assert seen["num_predict"] == 512

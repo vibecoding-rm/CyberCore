@@ -11,7 +11,7 @@ class FakeStructuredClient:
         self.answers = iter(answers)
         self.calls = []
 
-    async def chat_structured(self, model, messages, response_schema):
+    async def chat_structured(self, model, messages, response_schema, **kwargs):
         self.calls.append((model, messages, response_schema))
         return ModelCompletion(
             content=json.dumps(next(self.answers)),

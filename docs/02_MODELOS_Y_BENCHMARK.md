@@ -85,6 +85,14 @@ python -m scripts.run_model_benchmark --provider llamacpp --split development --
 ```
 
 El informe incluye `by_category` con el porcentaje de acierto de cada categoría.
+
+El esquema que recibe el modelo (`answer_generation_schema`) es un `oneOf` con
+una variante por `outcome`: `reason` primero y sólo los campos de ese resultado,
+todos obligatorios (`tool_call` exige `tool` y `target`; ninguna otra variante
+admite `tool`). Con un esquema plano el modelo omitía campos que había
+razonado bien o rellenaba campos ajenos a la pregunta; ver
+`reports/benchmarks/README.md`. Las respuestas se validan después con
+`BenchmarkAnswer`. Cada respuesta dispone de 512 tokens.
 `config/benchmark_cases.yaml` se conserva como suite inicial de 7 casos.
 
 En este equipo Windows de 16 GB, WSL/Docker dispone de 12 GB y el contenedor Ollama

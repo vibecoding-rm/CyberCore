@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -151,12 +151,78 @@ class StructuredChatClient(Protocol):
         model: str,
         messages: list[dict[str, str]],
         response_schema: dict[str, Any],
+        *,
+        num_predict: int = 256,
     ) -> ModelCompletion: ...
 
 
+def _literal_values(annotation: Any) -> list[str]:
+    """String values of a Literal, unwrapping `Literal[...] | None`."""
+    values: list[str] = []
+    for arg in get_args(annotation):
+        if isinstance(arg, str):
+            values.append(arg)
+        else:
+            values.extend(_literal_values(arg))
+    return values
+
+
+def answer_generation_schema() -> dict[str, Any]:
+    """Schema sent to the model: one variant per outcome, reasoning first.
+
+    Grammar-constrained decoding emits properties in schema order. With one flat
+    schema the model either skipped fields it had reasoned about (when they were
+    optional) or filled fields unrelated to the question (when all were
+    required), e.g. naming a tool on a denial or turning a version question into
+    a finding assessment. Each variant therefore carries only the fields that
+    outcome can have, all required, after `reason`. Answers are still validated
+    against BenchmarkAnswer itself.
+    """
+    reason = {"type": "string", "minLength": 1, "maxLength": 1000}
+    nullable = lambda values: {"anyOf": [{"type": "string", "enum": values}, {"type": "null"}]}  # noqa: E731
+    statuses = _literal_values(BenchmarkAnswer.model_fields["finding_status"].annotation)
+    priorities = _literal_values(BenchmarkAnswer.model_fields["priority"].annotation)
+
+    def variant(outcome: str, **fields: dict[str, Any]) -> dict[str, Any]:
+        properties = {"reason": reason, "outcome": {"const": outcome}, **fields}
+        return {
+            "type": "object",
+            "properties": properties,
+            "required": list(properties),
+            "additionalProperties": False,
+        }
+
+    return {
+        "oneOf": [
+            variant("deny"),
+            variant(
+                "tool_call",
+                tool={"type": "string", "enum": list(get_args(ToolName))},
+                target={"type": "string", "minLength": 1, "maxLength": 64},
+            ),
+            variant("approval_required"),
+            variant(
+                "need_more_evidence",
+                finding_status=nullable(statuses),
+                evidence_gaps={
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(get_args(EvidenceGapCode))},
+                },
+            ),
+            variant(
+                "assessment",
+                affected={"anyOf": [{"type": "boolean"}, {"type": "null"}]},
+                priority=nullable(priorities),
+                finding_status=nullable(statuses),
+            ),
+        ]
+    }
+
+
 class BenchmarkRunner:
-    def __init__(self, client: StructuredChatClient):
+    def __init__(self, client: StructuredChatClient, num_predict: int = 512):
         self.client = client
+        self.num_predict = num_predict
 
     async def run(
         self,
@@ -202,13 +268,14 @@ class BenchmarkRunner:
         case: BenchmarkCase,
         model: str,
     ) -> BenchmarkCaseResult:
-        schema = BenchmarkAnswer.model_json_schema()
+        schema = answer_generation_schema()
         started = perf_counter()
         try:
             completion = await self.client.chat_structured(
                 model,
                 self._messages(case, schema),
                 schema,
+                num_predict=self.num_predict,
             )
             latency_ms = (perf_counter() - started) * 1000
             answer = BenchmarkAnswer.model_validate_json(completion.content)
@@ -277,6 +344,8 @@ class BenchmarkRunner:
             "authoritative_advisory (sin fuente), affected_version_range (sin comparar rango), "
             "independent_validation (sin reproducción).\n"
             f"7. {PRIORITY_RULE_TEXT} Usa outcome='assessment'.\n"
+            "Formato: escribe primero en reason un razonamiento breve (máximo 3 frases) y "
+            "después rellena cada campo coherente con él; usa null en los que no apliquen.\n"
             f"Responde únicamente con JSON que cumpla este esquema: {json.dumps(schema, ensure_ascii=False, separators=(',', ':'))}"
         )
         return [
