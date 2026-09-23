@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     budget_key: str = "global"
     api_credentials_json: str = "[]"
     approval_max_ttl_seconds: int = 3600
-    llm_provider: Literal["ollama", "llamacpp"] = "ollama"
+    llm_provider: Literal["ollama", "llamacpp"] = "llamacpp"
     llamacpp_base_url: str = "http://localhost:8081"
     llamacpp_request_timeout_seconds: int = 180
     llamacpp_api_key: str = ""

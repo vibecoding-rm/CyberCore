@@ -10,7 +10,7 @@ Paquete inicial para construir un analista defensivo local de vulnerabilidades c
 - Broker de herramientas sin shell libre.
 - Adaptador simulado de inventario para probar el flujo sin tocar una red.
 - PostgreSQL y esquema inicial.
-- Configuración para Ollama, con los modelos desacoplados de la lógica.
+- Configuración para llama.cpp (llama-server), con los modelos desacoplados de la lógica.
 - Casos iniciales de CyberCAM-Bench.
 - Pruebas automáticas.
 - Script de instalación para Windows/WSL.
@@ -37,7 +37,7 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 
    ```bash
    cp .env.example .env
-   docker compose up -d postgres ollama
+   docker compose up -d postgres
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
@@ -52,9 +52,9 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 Para evaluar el orquestador sin darle herramientas:
 
 ```bash
-docker compose --profile models up -d ollama
-docker compose exec ollama ollama pull qwen3.5:9b
-python -m scripts.run_model_benchmark
+# Descarga el GGUF en models/ (ver docs/02_MODELOS_Y_BENCHMARK.md)
+docker compose --profile llamacpp up -d llamacpp
+python -m scripts.run_model_benchmark --split development
 ```
 
 En Windows con Docker Desktop, guarda esta configuración en

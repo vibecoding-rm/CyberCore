@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Python-3.12%2B-blue?logo=python" alt="Python 3.12+">
   <img src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Ollama-Local%20Inference-black?logo=ollama" alt="Ollama">
+  <img src="https://img.shields.io/badge/llama.cpp-Local%20Inference-black" alt="llama.cpp">
   <img src="https://img.shields.io/badge/Tests-213%20Passing-brightgreen?logo=pytest" alt="Tests">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
@@ -40,7 +40,7 @@ En CyberCore:
                                   ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │            CyberCore Autonomous Orchestrator (ReAct)             │
-│            (Qwen 3.5 9B / Modelos locales con Ollama)            │
+│          (Qwen 3.5 9B GGUF / Modelos locales con llama.cpp)      │
 │               - Planificación paso a paso estructurada           │
 │               - Selección de herramientas autorizadas            │
 └─────────────────────────────────┬────────────────────────────────┘
@@ -102,14 +102,17 @@ cp .env.example .env
 ```
 
 ### 2. Levantar la infraestructura local con Docker
-Inicia PostgreSQL (con extensión `pgvector`) y Ollama:
+Inicia PostgreSQL (con extensión `pgvector`):
 ```bash
-docker compose up -d postgres ollama
+docker compose up -d postgres
 ```
 
-Para descargar el modelo orquestador local:
+Descarga el modelo orquestador (GGUF, ~5,7 GB) en `models/` y arranca llama.cpp:
 ```bash
-docker compose exec ollama ollama pull qwen3.5:9b
+mkdir -p models
+curl -L -C - -o models/Qwen3.5-9B-Q4_K_M.gguf \
+  https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf
+docker compose --profile llamacpp up -d llamacpp
 ```
 
 ### 3. Migrar la base de datos y sembrar inteligencia base

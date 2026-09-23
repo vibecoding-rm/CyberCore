@@ -8,7 +8,6 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://cybercore:${POSTGRES_PASSWORD:-change_me}@postgres:5432/cybercore
-      OLLAMA_BASE_URL: http://ollama:11434
       LLAMACPP_BASE_URL: http://llamacpp:8081
     ports:
       - "127.0.0.1:8080:8080"
@@ -35,21 +34,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    mem_limit: 10g
-    ports:
-      - "127.0.0.1:11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    profiles: ["models"]
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
 
   llamacpp:
     image: ghcr.io/ggml-org/llama.cpp:server
@@ -82,4 +66,3 @@ services:
 
 volumes:
   postgres_data:
-  ollama_data:
