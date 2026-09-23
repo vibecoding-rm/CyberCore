@@ -18,6 +18,10 @@ class AuditStoreError(RuntimeError):
     """Raised when a durable audit operation cannot be completed."""
 
 
+class EvidenceIntegrityError(AuditStoreError):
+    """Raised when stored evidence no longer matches its sealed SHA-256."""
+
+
 @dataclass(frozen=True)
 class ExecutionStart:
     execution_id: UUID

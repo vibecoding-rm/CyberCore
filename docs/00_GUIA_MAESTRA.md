@@ -185,5 +185,33 @@ Instalación en Windows: descarga `nuclei_*_windows_amd64.zip` desde
 <https://github.com/projectdiscovery/nuclei/releases>, añade el `.exe` al PATH y
 ejecuta `nuclei -update-templates` (queda en `~/nuclei-templates`).
 
-Pendiente: que el `EvidenceGapAnalyzer` use una coincidencia de Nuclei como
-validación independiente.
+### Validación y promoción a `confirmed`
+
+`POST /v1/analysis/evidence` recibe sólo **IDs** de evidencia ya sellada por el
+broker (`inventory_evidence_id` de `inspect_services` y
+`validation_evidence_ids` de `run_nuclei_safe`). Cada evidencia se relee de
+PostgreSQL y se recalcula su SHA-256; si no coincide se responde 409 y no se
+analiza. El cliente no puede enviar cuerpos de evidencia.
+
+La regla es determinista (`decide_status`), nunca la decide el modelo:
+
+| Inventario | Rango de versión | Fuente con procedencia | Nuclei activo | Estado |
+|---|---|---|---|---|
+| simulado | cualquiera | cualquiera | cualquiera | `candidate` |
+| real | afectado | sí | reproduce | **`confirmed`** |
+| real | afectado | no | reproduce | `probable` |
+| real | sin resolver | cualquiera | reproduce | `probable` |
+| real | fuera de rango | cualquiera | reproduce | `candidate` (contradicción, revisión humana) |
+| real | afectado | cualquiera | no | `probable` |
+| real | resto | | no | `candidate` |
+
+- Sólo cuenta una plantilla **activa**, ejecutada en real (no mock), contra la
+  **misma IP**, con un hallazgo clasificado con **ese CVE**. Una detección pasiva
+  es otro fingerprint, no una validación.
+- Una ejecución activa sin resultado queda como "no reproducido"; nunca marca
+  `false_positive`, porque una plantilla puede no cubrir la configuración.
+- "Fuente con procedencia" = rangos NVD/OSV guardados con el hash de su registro
+  original, o presencia en CISA KEV.
+
+Nota: `evidence.append_only` está declarado en la política, pero PostgreSQL no lo
+impone con triggers; la reverificación del hash al leer detecta modificaciones.

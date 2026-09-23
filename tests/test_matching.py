@@ -140,7 +140,7 @@ def _evidence(source: str, cpe: str) -> Evidence:
 
 
 @pytest.mark.asyncio
-async def test_real_inventory_in_range_becomes_probable_never_confirmed():
+async def test_real_inventory_in_range_without_validation_is_probable():
     match = await VulnerabilityMatcher(FakeRangeRepository([stored()])).match_cpe(
         CVE, "cpe:/a:openbsd:openssh:9.6p1"
     )
@@ -152,7 +152,9 @@ async def test_real_inventory_in_range_becomes_probable_never_confirmed():
     assert assessment.finding_status == "probable"
     assert assessment.can_confirm is False
     assert "affected_version_range" not in codes
-    assert {"authoritative_advisory", "independent_validation"} <= codes
+    # NVD ranges stored with their source hash count as an authoritative source.
+    assert "authoritative_advisory" not in codes
+    assert "independent_validation" in codes
     assert assessment.version_matches == [match]
 
 

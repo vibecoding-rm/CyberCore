@@ -6,6 +6,8 @@ from app.api.auth import require_approver, require_operator
 from app.api.models import (
     ApprovalCreateRequest,
     ApprovalResponse,
+    EvidenceAnalysisRequest,
+    EvidenceAssessment,
     InventoryAssessmentRequest,
     InventoryAssessmentResponse,
     ToolRequest,
@@ -16,6 +18,7 @@ from app.api.models import (
 from app.agent.models import AgentRunResult, OrchestratorRunRequest
 from app.agent.orchestrator import CyberCoreOrchestrator
 from app.core.approvals import ApprovalService, ApprovalStoreError
+from app.core.audit import AuditStoreError, EvidenceIntegrityError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
@@ -82,14 +85,15 @@ async def lifespan(app: FastAPI):
             mode=settings.tool_mode,
         ),
     ]
+    app.state.evidence_store = PostgresExecutionJournal(
+        settings.database_url,
+        settings.database_connect_timeout_seconds,
+    )
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
         tools=tools,
         tool_mode=settings.tool_mode,
-        journal=PostgresExecutionJournal(
-            settings.database_url,
-            settings.database_connect_timeout_seconds,
-        ),
+        journal=app.state.evidence_store,
         budget_coordinator=app.state.budget_coordinator,
         approval_service=app.state.approval_service,
     )
@@ -293,6 +297,61 @@ async def analyze_inventory(
         inventory=inventory,
         assessment=assessment,
     )
+
+
+INVENTORY_SOURCES = {"inspect_services", "get_mock_inventory"}
+
+
+@app.post("/v1/analysis/evidence", response_model=EvidenceAssessment)
+async def analyze_sealed_evidence(
+    request: EvidenceAnalysisRequest,
+    principal: Principal = Depends(require_operator),
+) -> EvidenceAssessment:
+    """Assess evidence previously sealed by the broker, never client-supplied data."""
+    inventory = await _load_evidence(request.inventory_evidence_id)
+    if inventory.source not in INVENTORY_SOURCES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"La evidencia {inventory.evidence_id} no es un inventario de servicios",
+        )
+    validation = [await _load_evidence(eid) for eid in request.validation_evidence_ids]
+
+    try:
+        vuln_info = await app.state.vulnerability_repository.get_vulnerability(
+            request.vulnerability_id
+        )
+    except VulnerabilityStoreError:
+        vuln_info = None
+    version_matches = await _match_observed_services(
+        request.vulnerability_id,
+        inventory.data,
+    )
+    return app.state.evidence_analyzer.analyze(
+        inventory,
+        request.vulnerability_id,
+        vulnerability_info=vuln_info,
+        version_matches=version_matches,
+        validation_evidence=validation,
+    )
+
+
+async def _load_evidence(evidence_id: str):
+    try:
+        evidence = await app.state.evidence_store.get_evidence(evidence_id)
+    except EvidenceIntegrityError as exc:
+        # Never analyze evidence whose integrity cannot be proven.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except AuditStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El almacén de evidencia no está disponible",
+        ) from exc
+    if evidence is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Evidencia no encontrada o de una ejecución no completada: {evidence_id}",
+        )
+    return evidence
 
 
 @app.get("/v1/assets")

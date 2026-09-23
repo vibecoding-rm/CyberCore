@@ -1,8 +1,9 @@
+import re
 from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.intelligence.matching import VersionMatch
 
@@ -104,16 +105,40 @@ class EvidenceGap(BaseModel):
 class EvidenceAssessment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    outcome: Literal["need_more_evidence"] = "need_more_evidence"
-    finding_status: Literal["candidate", "probable"] = "candidate"
-    can_confirm: Literal[False] = False
+    outcome: Literal["need_more_evidence", "sufficient_evidence"] = "need_more_evidence"
+    finding_status: Literal["candidate", "probable", "confirmed"] = "candidate"
+    can_confirm: bool = False
     target: str
     vulnerability_id: str | None
     source_evidence_id: str
     observations: list[str]
     missing_evidence: list[EvidenceGap]
     version_matches: list[VersionMatch] = Field(default_factory=list)
+    validation_evidence_ids: list[str] = Field(default_factory=list)
     conclusion: str
+
+
+EVIDENCE_ID_PATTERN = r"^EVD-[0-9A-F]{12}$"
+
+
+class EvidenceAnalysisRequest(BaseModel):
+    """Assess sealed evidence already collected by the broker, referenced by id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vulnerability_id: str = Field(pattern=r"^CVE-[0-9]{4}-[0-9]{4,19}$")
+    inventory_evidence_id: str = Field(pattern=EVIDENCE_ID_PATTERN)
+    validation_evidence_ids: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("validation_evidence_ids")
+    @classmethod
+    def validate_ids(cls, value: list[str]) -> list[str]:
+        for evidence_id in value:
+            if not re.match(EVIDENCE_ID_PATTERN, evidence_id):
+                raise ValueError(f"Identificador de evidencia inválido: {evidence_id!r}")
+        if len(set(value)) != len(value):
+            raise ValueError("Identificadores de evidencia duplicados")
+        return value
 
 
 class InventoryAssessmentResponse(BaseModel):

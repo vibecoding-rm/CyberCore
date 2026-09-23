@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Ollama-Local%20Inference-black?logo=ollama" alt="Ollama">
-  <img src="https://img.shields.io/badge/Tests-193%20Passing-brightgreen?logo=pytest" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-213%20Passing-brightgreen?logo=pytest" alt="Tests">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
 
@@ -122,7 +122,7 @@ python scripts/ingest_vulnerabilities.py --baseline
 ```
 
 ### 4. Ejecutar la suite de pruebas
-CyberCore cuenta con **193 pruebas automatizadas** (más 18 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
+CyberCore cuenta con **213 pruebas automatizadas** (más 19 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
 ```bash
 pytest
 ```
@@ -161,6 +161,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 | `POST` | `/v1/tools/execute` | `operator` | Ejecución mediada y auditada de herramientas autorizadas. |
 | `POST` | `/v1/orchestrator/run` | `operator` | Ejecución autónoma guiada por LLM (ReAct loop). |
 | `POST` | `/v1/analysis/inventory` | `operator` | Evaluación de vacíos de evidencia (`EvidenceGapAnalyzer`). |
+| `POST` | `/v1/analysis/evidence` | `operator` | Evalúa evidencia sellada (inventario + Nuclei) y aplica la regla de promoción hasta `confirmed`. |
 | `GET` | `/v1/assets` | `operator` | Lista activos descubiertos y servicios observados. |
 | `GET` | `/v1/assets/{address}` | `operator` | Detalle de un activo por dirección IP. |
 | `GET` | `/v1/vulnerabilities` | `operator` | Consulta catálogo de CVEs, CISA KEV y EPSS. |

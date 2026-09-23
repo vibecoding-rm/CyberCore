@@ -1,6 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 
 from app.api.models import Evidence, EvidenceAssessment, EvidenceGap
+from app.core.validation import ValidationResult, assess_nuclei_validation
 from app.intelligence.matching import VersionMatch
 
 _VERDICT_TEXT = {
@@ -10,6 +11,52 @@ _VERDICT_TEXT = {
     "no_data": "sin rangos almacenados",
 }
 
+RangeState = Literal["affected", "not_affected", "unresolved"]
+FindingStatus = Literal["candidate", "probable", "confirmed"]
+
+_CANDIDATE = (
+    "La evidencia actual sólo permite mantener un candidato; no permite "
+    "afirmar que el activo es vulnerable."
+)
+
+
+def decide_status(
+    *,
+    simulated: bool,
+    range_state: RangeState,
+    advisory_resolved: bool,
+    validated: bool,
+) -> tuple[FindingStatus, str]:
+    """Deterministic promotion rule; the model never chooses the status.
+
+    confirmed = real inventory + version inside a published range + authoritative
+    source with provenance + independent reproduction by an active template.
+    """
+    if simulated:
+        return "candidate", _CANDIDATE
+    if validated:
+        if range_state == "affected" and advisory_resolved:
+            return "confirmed", (
+                "Producto y versión dentro de un rango publicado con procedencia "
+                "verificable y reproducción independiente con Nuclei: hallazgo confirmado."
+            )
+        if range_state == "not_affected":
+            return "candidate", (
+                "Contradicción: Nuclei reprodujo la vulnerabilidad, pero la versión "
+                "observada queda fuera de los rangos publicados. Requiere revisión humana."
+            )
+        return "probable", (
+            "Nuclei reprodujo la vulnerabilidad, pero falta resolver la versión o el "
+            "advisory autoritativo antes de confirmarla."
+        )
+    if range_state == "affected":
+        return "probable", (
+            "El producto y la versión caen en un rango afectado publicado: el "
+            "hallazgo es probable, pero falta validación independiente para "
+            "confirmarlo."
+        )
+    return "candidate", _CANDIDATE
+
 
 class EvidenceGapAnalyzer:
     def analyze(
@@ -18,6 +65,7 @@ class EvidenceGapAnalyzer:
         vulnerability_id: str | None,
         vulnerability_info: dict[str, Any] | None = None,
         version_matches: list[VersionMatch] | None = None,
+        validation_evidence: list[Evidence] | None = None,
     ) -> EvidenceAssessment:
         services = self._services(evidence.data)
         open_services = [service for service in services if service.get("state") == "open"]
@@ -52,10 +100,24 @@ class EvidenceGapAnalyzer:
             )
             observations.extend(match.notes)
         range_resolved = any(m.verdict in {"affected", "not_affected"} for m in matches)
+        range_state: RangeState = "unresolved"
+        if any(m.verdict == "affected" for m in matches):
+            range_state = "affected"
+        elif matches and all(m.verdict == "not_affected" for m in matches):
+            range_state = "not_affected"
+        # Stored NVD/OSV ranges carry the hash of their source record; KEV is
+        # CISA's own catalog. Either links the claim to an authoritative source.
+        advisory_resolved = any(m.evaluations for m in matches) or bool(
+            vulnerability_info and vulnerability_info.get("kev")
+        )
+        validation: ValidationResult = assess_nuclei_validation(
+            validation_evidence or [],
+            evidence.target,
+            vulnerability_id,
+        )
+        observations.extend(validation.observations)
+        validated = validation.status == "validated"
         simulated = evidence.data.get("source") == "simulated"
-        # "probable" = product and version match a published range; it still
-        # needs independent validation, so it can never become "confirmed" here.
-        probable = not simulated and any(m.verdict == "affected" for m in matches)
 
         missing: list[EvidenceGap] = []
 
@@ -100,18 +162,19 @@ class EvidenceGapAnalyzer:
                 )
             )
 
-        missing.append(
-            EvidenceGap(
-                code="authoritative_advisory",
-                description=(
-                    "No hay un advisory autoritativo vinculado a la observación."
-                ),
-                recommended_action=(
-                    "Consultar primero al proveedor y después fuentes como CISA, "
-                    "NVD u OSV, conservando procedencia y fecha."
-                ),
+        if not advisory_resolved:
+            missing.append(
+                EvidenceGap(
+                    code="authoritative_advisory",
+                    description=(
+                        "No hay un advisory autoritativo vinculado a la observación."
+                    ),
+                    recommended_action=(
+                        "Consultar primero al proveedor y después fuentes como CISA, "
+                        "NVD u OSV, conservando procedencia y fecha."
+                    ),
+                )
             )
-        )
         if not range_resolved:
             missing.append(
                 EvidenceGap(
@@ -125,36 +188,36 @@ class EvidenceGapAnalyzer:
                     ),
                 )
             )
-        missing.append(
-            EvidenceGap(
-                code="independent_validation",
-                description="No existe una validación independiente reproducible.",
-                recommended_action=(
-                    "Realizar una comprobación segura y autorizada antes de elevar "
-                    "el hallazgo a confirmado."
-                ),
+        if not validated:
+            missing.append(
+                EvidenceGap(
+                    code="independent_validation",
+                    description="No existe una validación independiente reproducible.",
+                    recommended_action=(
+                        "Ejecutar run_nuclei_safe con una plantilla activa del allowlist "
+                        "y aprobación, y aportar su evidencia sellada."
+                    ),
+                )
             )
-        )
 
-        if probable:
-            conclusion = (
-                "El producto y la versión caen en un rango afectado publicado: el "
-                "hallazgo es probable, pero falta validación independiente para "
-                "confirmarlo."
-            )
-        else:
-            conclusion = (
-                "La evidencia actual sólo permite mantener un candidato; no permite "
-                "afirmar que el activo es vulnerable."
-            )
+        status, conclusion = decide_status(
+            simulated=simulated,
+            range_state=range_state,
+            advisory_resolved=advisory_resolved,
+            validated=validated,
+        )
+        confirmed = status == "confirmed"
         return EvidenceAssessment(
-            finding_status="probable" if probable else "candidate",
+            outcome="sufficient_evidence" if confirmed else "need_more_evidence",
+            finding_status=status,
+            can_confirm=confirmed,
             target=evidence.target,
             vulnerability_id=vulnerability_id,
             source_evidence_id=evidence.evidence_id,
             observations=observations,
             missing_evidence=missing,
             version_matches=matches,
+            validation_evidence_ids=validation.evidence_ids,
             conclusion=conclusion,
         )
 

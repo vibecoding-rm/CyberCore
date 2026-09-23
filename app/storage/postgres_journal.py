@@ -5,7 +5,13 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from app.api.models import Evidence
-from app.core.audit import AuditStoreError, ExecutionStart, ExecutionStatus
+from app.core.canonical import evidence_sha256
+from app.core.audit import (
+    AuditStoreError,
+    EvidenceIntegrityError,
+    ExecutionStart,
+    ExecutionStatus,
+)
 
 
 class PostgresExecutionJournal:
@@ -111,6 +117,43 @@ class PostgresExecutionJournal:
             raise
         except Exception as exc:
             raise AuditStoreError("No se pudo cerrar el registro durable") from exc
+
+    async def get_evidence(self, evidence_id: str) -> Evidence | None:
+        """Load evidence of a completed execution, proving it was not altered.
+
+        The SHA-256 is recomputed over the stored data with the same canonical
+        JSON the broker used when sealing it; a mismatch is an integrity error.
+        """
+        try:
+            async with await self._connect() as connection:
+                cursor = await connection.execute(
+                    """
+                    SELECT e.id, e.source, e.target, e.sha256, e.raw_data, e.collected_at
+                    FROM evidence e
+                    JOIN executions x ON x.id = e.execution_id
+                    WHERE e.id = %s AND x.status = 'completed'
+                    """,
+                    (evidence_id,),
+                )
+                row = await cursor.fetchone()
+        except Exception as exc:
+            raise AuditStoreError("No se pudo consultar la evidencia") from exc
+        if row is None:
+            return None
+
+        evidence = Evidence(
+            evidence_id=row[0],
+            source=row[1],
+            target=row[2],
+            sha256=row[3],
+            data=row[4],
+            collected_at=row[5],
+        )
+        if evidence_sha256(evidence.data) != evidence.sha256:
+            raise EvidenceIntegrityError(
+                f"La evidencia {evidence_id} no coincide con su hash sellado"
+            )
+        return evidence
 
     async def ping(self) -> None:
         try:
