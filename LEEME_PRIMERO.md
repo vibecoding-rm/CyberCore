@@ -21,9 +21,8 @@ No conectes todavía Nmap, Nuclei, Greenbone o Wazuh a una red real. Primero eje
 
 ## Instalación rápida en tu PC
 
-1. Descomprime la carpeta `CyberCore` dentro de:
-
-   `C:\Users\Computops\Desktop\Proyectos`
+1. Clona o descomprime `CyberCore` en tu carpeta de proyectos, por ejemplo
+   `%USERPROFILE%\Desktop\Proyectos` (el script acepta `-Target` para otra ruta).
 
 2. Abre PowerShell como usuario normal.
 3. Ejecuta:

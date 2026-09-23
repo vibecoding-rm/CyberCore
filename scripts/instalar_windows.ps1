@@ -1,6 +1,8 @@
-$ErrorActionPreference = "Stop"
+param(
+    [string]$Target = (Join-Path $env:USERPROFILE "Desktop\Proyectos\CyberCore")
+)
 
-$Target = "C:\Users\Computops\Desktop\Proyectos\CyberCore"
+$ErrorActionPreference = "Stop"
 $Source = Split-Path -Parent $PSScriptRoot
 
 Write-Host "Destino: $Target"

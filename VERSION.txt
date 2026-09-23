@@ -1,4 +1,6 @@
-CyberCore Starter v0.1.0
-Fecha del paquete: 2026-09-21
-Modo predeterminado: mock
-Estado: base inicial validada; conectores de escaneo real deshabilitados
+CyberCore v0.2.0
+Fecha: 2026-09-23
+Modo predeterminado: mock (TOOL_MODE=mock)
+Estado: fases 0-5 implementadas (broker, Nmap, KEV/EPSS/NVD/OSV, Nuclei, Wazuh,
+Greenbone, DefectDojo); los adaptadores con efecto real vienen deshabilitados
+en config/policy.yaml. Fase 6 (QLoRA) pendiente de trazas reales.

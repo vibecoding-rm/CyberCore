@@ -14,5 +14,5 @@ If you discover a security vulnerability within CyberCore itself:
 - **Strict Scope Governance**: CyberCore's `PolicyEngine` validates every target against configured CIDRs (`config/policy.yaml`). Public IPs and unapproved networks are rejected by default.
 - **Fail-Closed Design**: If database journals, budget coordinators, or approval stores are unavailable, all tool executions are refused (`503 Service Unavailable`).
 - **No Arbitrary Shell Execution**: Language models interacting with CyberCore never receive direct shell access. All actions occur through typed, strictly validated Pydantic contracts via the `ToolBroker`.
-- **Durable Cryptographic Audit**: Every request, decision, raw output, and evidence artifact is hashed with SHA-256 and persisted in PostgreSQL.
-- **Single-Use Approvals**: Medium and high risk actions mandate cryptographically signed, one-time approval tokens issued by a supervisor.
+- **Durable Audit**: Every request and policy decision is persisted in PostgreSQL. Tool evidence is sealed with SHA-256, stored in an append-only table (database triggers reject UPDATE, DELETE and TRUNCATE) and re-verified on every read.
+- **Single-Use Approvals**: Medium and high risk actions require a random one-time token (stored only as a SHA-256 hash) issued by an approver who is not the requester, bound to the exact tool and arguments, and consumed atomically.

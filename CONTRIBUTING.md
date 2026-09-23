@@ -20,7 +20,7 @@ Thank you for contributing to CyberCore! We welcome contributions that align wit
 
 3. **Start Local Services (Docker)**:
    ```bash
-   docker compose up -d postgres ollama
+   docker compose up -d postgres
    ```
 
 4. **Apply Database Migrations & Seed Baseline Feeds**:

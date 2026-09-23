@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Plataforma Autónoma de Análisis Defensivo y Gestión de Vulnerabilidades</strong><br>
-  <em>Gobernanza estricta de alcance, mediación criptográfica de herramientas y evidencia auditable.</em>
+  <em>Gobernanza estricta de alcance, herramientas mediadas por un broker y evidencia sellada con SHA-256.</em>
 </p>
 
 <p align="center">
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/llama.cpp-Local%20Inference-black" alt="llama.cpp">
-  <img src="https://img.shields.io/badge/Tests-269%20Passing-brightgreen?logo=pytest" alt="Tests">
+  <a href="https://github.com/vibecoding-rm/CyberCore/actions/workflows/ci.yml"><img src="https://github.com/vibecoding-rm/CyberCore/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
 
@@ -24,8 +24,9 @@ En CyberCore:
 1. **La evidencia decide; el modelo explica y organiza.**
 2. **Ningún LLM tiene acceso directo a una shell.** Toda interacción ocurre mediante contratos tipados y estrictamente validados en [ToolBroker](app/core/tool_broker.py).
 3. **El alcance es inmutable:** [PolicyEngine](app/core/policy.py) rechaza de forma determinista cualquier IP pública o red fuera de los CIDRs autorizados.
-4. **Trazabilidad criptográfica total:** Cada solicitud, decisión de política, resultado de herramienta y reporte final se sella con hashes **SHA-256** en PostgreSQL.
-5. **Aprobaciones de un solo uso:** Las acciones de riesgo medio o alto requieren tokens emitidos por un supervisor y consumidos atómicamente.
+4. **Trazabilidad auditable:** cada solicitud y decisión de política queda registrada en PostgreSQL, y la evidencia de cada herramienta se sella con **SHA-256**, se guarda en una tabla de sólo inserción y se reverifica al leerla.
+5. **Aprobaciones de un solo uso:** las acciones de riesgo medio o alto requieren un token aleatorio emitido por un aprobador distinto del operador, ligado a la herramienta y argumentos exactos y consumido atómicamente.
+6. **El modelo no decide estados:** rangos de versión, estado del hallazgo (`candidate` → `confirmed`) y prioridad se calculan con reglas deterministas.
 
 ---
 
@@ -127,7 +128,7 @@ python scripts/ingest_vulnerabilities.py --baseline
 ```
 
 ### 4. Ejecutar la suite de pruebas
-CyberCore cuenta con **269 pruebas automatizadas** (más 19 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
+La suite cubre alcance, aprobaciones, broker, adaptadores e inteligencia; las pruebas de integración se activan con `CYBERCORE_TEST_DATABASE_URL` apuntando a PostgreSQL:
 ```bash
 pytest
 ```
@@ -153,7 +154,7 @@ python scripts/demo_orchestrator.py "Escanea la IP pública 8.8.8.8"
 
 Inicia el servidor de API:
 ```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+uvicorn app.main:app --host 127.0.0.1 --port 8080
 ```
 
 ### Endpoints Principales
@@ -184,7 +185,20 @@ La carpeta [`docs/`](docs/) contiene las especificaciones maestras de diseño:
 - [`docs/02_MODELOS_Y_BENCHMARK.md`](docs/02_MODELOS_Y_BENCHMARK.md): Evaluación empírica de LLMs locales en 16 GB.
 - [`docs/03_DATOS_Y_CONOCIMIENTO.md`](docs/03_DATOS_Y_CONOCIMIENTO.md): Estructura relacional vs pgvector y jerarquía de fuentes.
 - [`docs/04_SEGURIDAD_Y_OPERACION.md`](docs/04_SEGURIDAD_Y_OPERACION.md): Gobernanza de tokens, presupuestos y control de riesgos.
+- [`docs/05_ENTRENAMIENTO_QLORA.md`](docs/05_ENTRENAMIENTO_QLORA.md): Plan de ajuste fino con trazas reales (fase 6).
+- [`docs/06_REFERENCIAS.md`](docs/06_REFERENCIAS.md): Fuentes y referencias externas.
 - [`docs/07_FASE_0_CONTROLES.md`](docs/07_FASE_0_CONTROLES.md): Matriz de controles defensivos implementados.
+
+---
+
+## 📊 Evaluación de modelos
+
+CyberCAM-Bench (150 casos con etiquetas derivadas de las reglas del propio
+sistema) evaluó Qwen3.5-9B Q4_K_M en llama.cpp: **85,3 % en el split de test,
+100 % de JSON válido**, cumpliendo el criterio de promoción como orquestador
+(alcance, aprobaciones, selección de herramienta). No es fiable como analista de
+versiones, por lo que esas decisiones permanecen en código. Detalle en
+[`reports/benchmarks/`](reports/benchmarks/README.md).
 
 ---
 

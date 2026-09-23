@@ -173,7 +173,7 @@ def _defectdojo_settings(settings) -> DefectDojoSettings | None:
 
 app = FastAPI(
     title="CyberCore Starter",
-    version="0.1.0",
+    version="0.2.0",
     description="Broker defensivo con alcance y evidencia.",
     lifespan=lifespan,
 )
