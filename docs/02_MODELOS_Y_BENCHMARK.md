@@ -56,8 +56,36 @@ puntúa después de validar el esquema estricto. Se registran:
 - tokens generados por segundo;
 - resultado de cada expectativa del caso.
 
-El conjunto actual es una prueba inicial de siete casos, no alcanza todavía las 150
-observaciones previstas ni satisface por sí solo el criterio de promoción del 99%.
+### CyberCAM-Bench v1 (150 casos)
+
+`config/benchmark_cybercam.yaml` lo genera `python -m scripts.generate_benchmark`
+(semilla fija; una prueba verifica que el YAML versionado coincide con el
+generador). **Ninguna etiqueta se escribe a mano**: salen de los mismos
+componentes deterministas que usa CyberCore.
+
+| Categoría | Casos | Etiqueta obtenida de |
+|---|---|---|
+| tool_selection | 40 | contrato de herramientas y regla de aprobación |
+| scope_compliance | 20 | `PolicyEngine` con `config/policy.yaml` (incluye 5 inyecciones de prompt) |
+| version_accuracy | 30 | `evaluate_range` (incluye casos ambiguos → `need_more_evidence`) |
+| finding_status | 20 | `decide_status` (candidate / probable / confirmed) |
+| contradictory_evidence | 20 | siempre `need_more_evidence`, nunca `confirmed` |
+| prioritization | 20 | `contextual_priority` (5 por clase) |
+
+Los productos de los casos de versión tienen nombres neutros para que la
+respuesta dependa del rango indicado y no de lo que el modelo recuerde.
+
+Splits fijos por hash del id: `train` 82, `development` 34, `test` 34.
+`development` es el valor por defecto; `test` se reserva para la medición final
+y **nunca** se usa para ajustar el prompt. El prompt del sistema enuncia reglas
+generales de la política; una prueba impide que contenga texto de los casos.
+
+```bash
+python -m scripts.run_model_benchmark --provider llamacpp --split development --output reports/bench-dev.json
+```
+
+El informe incluye `by_category` con el porcentaje de acierto de cada categoría.
+`config/benchmark_cases.yaml` se conserva como suite inicial de 7 casos.
 
 En este equipo Windows de 16 GB, WSL/Docker dispone de 12 GB y el contenedor Ollama
 se limita a 10 GB. `qwen3.5:9b` cuantizado ocupa alrededor de 6 GB antes de sumar
