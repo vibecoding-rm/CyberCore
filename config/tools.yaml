@@ -17,7 +17,7 @@ tools:
     side_effect: active_validation
   - name: get_wazuh_inventory
     purpose: Consultar inventario existente mediante API oficial.
-    target_argument: host
+    target_argument: target
     side_effect: read_only
   - name: start_greenbone_task
     purpose: Iniciar una tarea previamente configurada en Greenbone.

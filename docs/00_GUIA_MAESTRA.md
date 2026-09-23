@@ -216,3 +216,27 @@ La regla es determinista (`decide_status`), nunca la decide el modelo:
 `evidence` es de sólo inserción en PostgreSQL (migración 0006): los triggers
 rechazan `UPDATE`, `DELETE` y `TRUNCATE`. Sólo un superusuario que desactive
 triggers puede saltárselo, y aun así la reverificación del hash al leer lo detecta.
+
+### Estado de la Fase 5 — `get_wazuh_inventory`
+
+Adaptador de sólo lectura en `app/tools/wazuh.py` contra la API del servidor
+Wazuh (`/security/user/authenticate`, `/agents`, `/syscollector/{id}/os`,
+`/packages`, `/ports`):
+
+- El modelo sólo aporta la IP del activo (validada por la política); la URL del
+  manager y las credenciales vienen de `.env` (`WAZUH_API_*`) y nunca aparecen en
+  la evidencia ni en los errores. Usa un usuario de Wazuh con rol de sólo lectura.
+- TLS verificado por defecto; con certificado autofirmado, indica su CA en
+  `WAZUH_CA_BUNDLE` en lugar de desactivar la verificación.
+- Si ningún agente o varios agentes tienen esa IP, no se elige uno: la evidencia
+  lo indica y no contiene paquetes. Los agentes se refiltran localmente por IP
+  para no revelar otros hosts si el servidor ignorase el filtro.
+- Paquetes paginados y limitados a 5000 (`packages_truncated`), SO y puertos en
+  escucha con el proceso que los abre.
+- Política: `risk: low`, sin aprobación, **deshabilitada** hasta configurar Wazuh.
+
+Uso previsto: segunda fuente de versión. Nmap ve `OpenSSH 9.6p1` desde la red;
+Wazuh ve el paquete `openssh-server 1:9.6p1-3ubuntu13.5`, cuya revisión de
+distribución indica posibles backports.
+
+Pendiente en la Fase 5: Greenbone (`python-gvm`) y DefectDojo.

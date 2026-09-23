@@ -38,6 +38,7 @@ from app.tools.mock_inventory import MockInventoryTool
 from app.tools.nmap import NmapDiscoverHostsTool, NmapInspectServicesTool
 from app.tools.nuclei import NucleiSafeTool
 from app.tools.nuclei_catalog import NucleiTemplateCatalog
+from app.tools.wazuh import WazuhInventoryTool, WazuhSettings
 
 
 @asynccontextmanager
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
             ),
             mode=settings.tool_mode,
         ),
+        WazuhInventoryTool(_wazuh_settings(settings), mode=settings.tool_mode),
     ]
     app.state.evidence_store = PostgresExecutionJournal(
         settings.database_url,
@@ -108,6 +110,18 @@ async def lifespan(app: FastAPI):
     )
     yield
     await app.state.llm_client.aclose()
+
+
+def _wazuh_settings(settings) -> WazuhSettings | None:
+    if not settings.wazuh_api_url:
+        return None
+    return WazuhSettings(
+        base_url=settings.wazuh_api_url,
+        user=settings.wazuh_api_user,
+        password=settings.wazuh_api_password,
+        verify_tls=settings.wazuh_verify_tls,
+        ca_bundle=settings.wazuh_ca_bundle or None,
+    )
 
 
 app = FastAPI(

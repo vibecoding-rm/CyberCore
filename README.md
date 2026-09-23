@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/llama.cpp-Local%20Inference-black" alt="llama.cpp">
-  <img src="https://img.shields.io/badge/Tests-213%20Passing-brightgreen?logo=pytest" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-236%20Passing-brightgreen?logo=pytest" alt="Tests">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
 
@@ -60,6 +60,7 @@ En CyberCore:
 │   ├── discover_hosts      -> Nmap Ping Scan seguro (-sn -n)      │
 │   ├── inspect_services    -> Nmap Service Banner (-sT -sV -Pn)   │
 │   ├── run_nuclei_safe     -> Plantillas HTTP fijadas por SHA-256 │
+│   ├── get_wazuh_inventory -> Paquetes/SO/puertos vía API Wazuh   │
 │   └── get_mock_inventory  -> Entorno sintético de laboratorio    │
 └─────────────────────────────────┬────────────────────────────────┘
                                   │ Evidencia cruda + SHA-256
@@ -125,7 +126,7 @@ python scripts/ingest_vulnerabilities.py --baseline
 ```
 
 ### 4. Ejecutar la suite de pruebas
-CyberCore cuenta con **213 pruebas automatizadas** (más 19 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
+CyberCore cuenta con **236 pruebas automatizadas** (más 19 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
 ```bash
 pytest
 ```

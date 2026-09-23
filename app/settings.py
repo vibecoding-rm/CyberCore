@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +29,11 @@ class Settings(BaseSettings):
     analyst_model: str = "foundation-sec-8b-reasoning"
     nvd_api_key: str = ""
     nuclei_templates_dir: Path = Path("~/nuclei-templates")
+    wazuh_api_url: str = ""
+    wazuh_api_user: str = ""
+    wazuh_api_password: SecretStr = SecretStr("")
+    wazuh_verify_tls: bool = True
+    wazuh_ca_bundle: str = ""
     nuclei_allowlist_file: Path = Path("config/nuclei_templates.yaml")
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"
