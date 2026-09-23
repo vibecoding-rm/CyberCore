@@ -157,3 +157,33 @@ Esta demostración está implementada en `POST /v1/analysis/inventory`. Usa el
 adaptador simulado, conserva la decisión y la evidencia en el flujo auditado, y
 devuelve siempre `candidate`/`need_more_evidence` mientras falten producto y versión,
 advisory autoritativo, comparación de rango y validación independiente.
+
+### Estado de la Fase 4 — adaptador `run_nuclei_safe`
+
+Implementado en `app/tools/nuclei.py` y `app/tools/nuclei_catalog.py`:
+
+- **Allowlist humano con hash fijado** (`config/nuclei_templates.yaml`). El
+  operador o el modelo sólo eligen IDs de ese allowlist; nunca rutas, etiquetas
+  ni flags. `scripts/pin_nuclei_template.py` revisa una plantilla y añade su
+  SHA-256. Si `nuclei -update-templates` la cambia, la ejecución se rechaza.
+- **Sólo HTTP ligado al objetivo**: se rechazan plantillas `code`, `headless`,
+  `javascript`, `file`, `flow`, `workflows` y `self-contained`.
+- **Lo que se ejecuta es lo que se verificó**: los bytes con hash correcto se
+  copian a un directorio temporal privado y Nuclei carga esa copia.
+- **Flags fijos**: `-no-interactsh` (sin callbacks externos), `-disable-redirects`
+  (una redirección podría salir del alcance), `-rate-limit 5`, `-concurrency 1`,
+  `-retries 0`, sin actualizaciones. `-config config/nuclei-runtime.yaml` impide
+  que la configuración del usuario añada proxy, cabeceras o `-code`.
+- **Pasiva frente a activa**: cada plantilla declara `mode`; la evidencia
+  registra `run_mode`, versión del motor y hash de cada plantilla.
+- **Política**: `run_nuclei_safe` es `risk: high`, requiere aprobación y viene
+  deshabilitada. Sólo acepta IP (sin DNS) dentro de `allowed_networks`.
+- **No expuesto al orquestador LLM**: se invoca desde `/v1/tools/execute` con
+  una aprobación de un solo uso.
+
+Instalación en Windows: descarga `nuclei_*_windows_amd64.zip` desde
+<https://github.com/projectdiscovery/nuclei/releases>, añade el `.exe` al PATH y
+ejecuta `nuclei -update-templates` (queda en `~/nuclei-templates`).
+
+Pendiente: que el `EvidenceGapAnalyzer` use una coincidencia de Nuclei como
+validación independiente.

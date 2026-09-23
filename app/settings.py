@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     orchestrator_model: str = "qwen3.5:9b"
     analyst_model: str = "foundation-sec-8b-reasoning"
     nvd_api_key: str = ""
+    nuclei_templates_dir: Path = Path("~/nuclei-templates")
+    nuclei_allowlist_file: Path = Path("config/nuclei_templates.yaml")
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"
 

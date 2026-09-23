@@ -1,0 +1,5 @@
+# Configuración explícita para Nuclei. CyberCore la pasa con -config para que
+# ~/.config/nuclei/config.yaml del usuario no pueda añadir flags (proxy,
+# cabeceras, -code, -headless, etc.). Los flags de seguridad van fijos en
+# app/tools/nuclei.py.
+disable-update-check: true

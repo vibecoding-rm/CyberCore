@@ -1,0 +1,13 @@
+# Allowlist de plantillas Nuclei. Añadir una entrada es una decisión humana:
+# revisa el contenido de la plantilla antes de fijar su hash.
+#
+#   python -m scripts.pin_nuclei_template http/cves/2021/CVE-2021-41773.yaml \
+#       --mode active --description "Path traversal Apache 2.4.49"
+#
+# mode:
+#   passive -> sólo detecta (versión, banner, exposición) sin alterar el objetivo.
+#   active  -> envía cargas que intentan demostrar la vulnerabilidad.
+# Sólo se aceptan plantillas HTTP ligadas al objetivo (sin code, headless,
+# javascript, file, flow ni self-contained). Si la plantilla cambia tras un
+# `nuclei -update-templates`, el hash deja de coincidir y la ejecución se rechaza.
+templates: []

@@ -33,6 +33,8 @@ from app.storage.postgres_vulnerabilities import (
 )
 from app.tools.mock_inventory import MockInventoryTool
 from app.tools.nmap import NmapDiscoverHostsTool, NmapInspectServicesTool
+from app.tools.nuclei import NucleiSafeTool
+from app.tools.nuclei_catalog import NucleiTemplateCatalog
 
 
 @asynccontextmanager
@@ -72,6 +74,13 @@ async def lifespan(app: FastAPI):
         MockInventoryTool(),
         NmapDiscoverHostsTool(mode=settings.tool_mode),
         NmapInspectServicesTool(mode=settings.tool_mode),
+        NucleiSafeTool(
+            NucleiTemplateCatalog.from_yaml(
+                settings.nuclei_allowlist_file,
+                settings.nuclei_templates_dir,
+            ),
+            mode=settings.tool_mode,
+        ),
     ]
     app.state.broker = ToolBroker(
         policy=PolicyEngine(settings.policy_file),
