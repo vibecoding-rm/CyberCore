@@ -255,4 +255,22 @@ distribución indica posibles backports.
   `python-gvm` parsea con `resolve_entities=False` (sin XXE).
 - Ambas herramientas vienen deshabilitadas en `config/policy.yaml`.
 
-Pendiente en la Fase 5: DefectDojo.
+### DefectDojo (exportación de hallazgos)
+
+`POST /v1/findings/export` recibe los mismos IDs de evidencia sellada que
+`/v1/analysis/evidence`, **rehace el análisis en el servidor** y envía el
+resultado con `reimport-scan` (formato *Generic Findings Import*). El cliente
+nunca envía el hallazgo ya construido.
+
+- Sólo se exportan `probable` y `confirmed`; `verified=true` sólo en `confirmed`.
+- Severidad por bandas CVSS v3; descripción con estado, observaciones, evidencia
+  pendiente e IDs/SHA-256 de la evidencia sellada; CWE, vector CVSS, KEV y alias.
+- `unique_id_from_tool = cybercore:<ip>:<cve>` y **un test por activo y CVE**:
+  el reimport puede cerrar hallazgos ausentes del archivo, así que compartir un
+  test entre exportaciones mitigaría hallazgos ajenos. También se envía
+  `close_old_findings=false`.
+- `dry_run: true` devuelve el hallazgo sin enviarlo (útil sin DefectDojo).
+- Token en `DEFECTDOJO_API_TOKEN`; no aparece en respuestas ni errores.
+
+Con esto la Fase 5 queda implementada. Queda la Fase 6 (entrenamiento QLoRA),
+que requiere trazas reales acumuladas.

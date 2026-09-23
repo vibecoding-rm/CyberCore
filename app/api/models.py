@@ -141,6 +141,20 @@ class EvidenceAnalysisRequest(BaseModel):
         return value
 
 
+class FindingExportRequest(EvidenceAnalysisRequest):
+    dry_run: bool = False
+
+
+class FindingExportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    exported: bool
+    dry_run: bool
+    assessment: EvidenceAssessment
+    finding: dict[str, Any]
+    defectdojo: dict[str, Any] | None = None
+
+
 class InventoryAssessmentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

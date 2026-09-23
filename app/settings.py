@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     greenbone_host: str = ""
     greenbone_port: int = 9390
     greenbone_cafile: str = ""
+    defectdojo_url: str = ""
+    defectdojo_api_token: SecretStr = SecretStr("")
+    defectdojo_product_type: str = "CyberCore"
+    defectdojo_product: str = "CyberCore Lab"
+    defectdojo_engagement: str = "CyberCore automated"
+    defectdojo_verify_tls: bool = True
+    defectdojo_ca_bundle: str = ""
     nuclei_allowlist_file: Path = Path("config/nuclei_templates.yaml")
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"

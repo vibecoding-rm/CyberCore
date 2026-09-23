@@ -8,6 +8,8 @@ from app.api.models import (
     ApprovalResponse,
     EvidenceAnalysisRequest,
     EvidenceAssessment,
+    FindingExportRequest,
+    FindingExportResponse,
     InventoryAssessmentRequest,
     InventoryAssessmentResponse,
     ToolRequest,
@@ -23,6 +25,13 @@ from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
+from app.integrations.defectdojo import (
+    DefectDojoClient,
+    DefectDojoError,
+    DefectDojoSettings,
+    build_generic_finding,
+    dojo_test_title,
+)
 from app.intelligence.matching import VersionMatch, VulnerabilityMatcher
 from app.llm.factory import create_chat_client
 from app.settings import get_settings
@@ -75,6 +84,7 @@ async def lifespan(app: FastAPI):
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
     app.state.evidence_analyzer = EvidenceGapAnalyzer()
+    app.state.defectdojo_settings = _defectdojo_settings(settings)
     app.state.vulnerability_matcher = VulnerabilityMatcher(
         app.state.vulnerability_repository
     )
@@ -143,6 +153,21 @@ def _greenbone_settings(settings) -> GreenboneSettings | None:
         host=settings.greenbone_host or None,
         port=settings.greenbone_port,
         cafile=settings.greenbone_cafile or None,
+    )
+
+
+def _defectdojo_settings(settings) -> DefectDojoSettings | None:
+    token = settings.defectdojo_api_token.get_secret_value()
+    if not settings.defectdojo_url or not token:
+        return None
+    return DefectDojoSettings(
+        base_url=settings.defectdojo_url,
+        api_token=settings.defectdojo_api_token,
+        product_type=settings.defectdojo_product_type,
+        product=settings.defectdojo_product,
+        engagement=settings.defectdojo_engagement,
+        verify_tls=settings.defectdojo_verify_tls,
+        ca_bundle=settings.defectdojo_ca_bundle or None,
     )
 
 
@@ -344,6 +369,49 @@ async def analyze_sealed_evidence(
     principal: Principal = Depends(require_operator),
 ) -> EvidenceAssessment:
     """Assess evidence previously sealed by the broker, never client-supplied data."""
+    assessment, _inventory, _info = await _assess_sealed(request)
+    return assessment
+
+
+@app.post("/v1/findings/export", response_model=FindingExportResponse)
+async def export_finding(
+    request: FindingExportRequest,
+    principal: Principal = Depends(require_operator),
+) -> FindingExportResponse:
+    """Re-assess sealed evidence server-side and push the result to DefectDojo."""
+    assessment, inventory, info = await _assess_sealed(request)
+    try:
+        finding = build_generic_finding(assessment, inventory, info)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    if request.dry_run:
+        return FindingExportResponse(
+            exported=False, dry_run=True, assessment=assessment, finding=finding
+        )
+
+    settings: DefectDojoSettings | None = app.state.defectdojo_settings
+    if settings is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="DefectDojo no está configurado; usa dry_run para ver el hallazgo",
+        )
+    client = DefectDojoClient(settings)
+    try:
+        result = await client.reimport(
+            [finding], dojo_test_title(assessment.target, request.vulnerability_id)
+        )
+    except DefectDojoError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    finally:
+        await client.aclose()
+    return FindingExportResponse(
+        exported=True, dry_run=False, assessment=assessment, finding=finding, defectdojo=result
+    )
+
+
+async def _assess_sealed(request: EvidenceAnalysisRequest):
     inventory = await _load_evidence(request.inventory_evidence_id)
     if inventory.source not in INVENTORY_SOURCES:
         raise HTTPException(
@@ -362,13 +430,14 @@ async def analyze_sealed_evidence(
         request.vulnerability_id,
         inventory.data,
     )
-    return app.state.evidence_analyzer.analyze(
+    assessment = app.state.evidence_analyzer.analyze(
         inventory,
         request.vulnerability_id,
         vulnerability_info=vuln_info,
         version_matches=version_matches,
         validation_evidence=validation,
     )
+    return assessment, inventory, vuln_info
 
 
 async def _load_evidence(evidence_id: str):
