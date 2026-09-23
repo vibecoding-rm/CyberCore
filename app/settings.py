@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     wazuh_api_password: SecretStr = SecretStr("")
     wazuh_verify_tls: bool = True
     wazuh_ca_bundle: str = ""
+    greenbone_user: str = ""
+    greenbone_password: SecretStr = SecretStr("")
+    greenbone_socket_path: str = ""
+    greenbone_host: str = ""
+    greenbone_port: int = 9390
+    greenbone_cafile: str = ""
     nuclei_allowlist_file: Path = Path("config/nuclei_templates.yaml")
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"

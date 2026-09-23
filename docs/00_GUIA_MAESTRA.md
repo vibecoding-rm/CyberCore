@@ -239,4 +239,20 @@ Uso previsto: segunda fuente de versión. Nmap ve `OpenSSH 9.6p1` desde la red;
 Wazuh ve el paquete `openssh-server 1:9.6p1-3ubuntu13.5`, cuya revisión de
 distribución indica posibles backports.
 
-Pendiente en la Fase 5: Greenbone (`python-gvm`) y DefectDojo.
+### Greenbone (`python-gvm`, GMP)
+
+- `start_greenbone_task` (`risk: high`, aprobación): sólo **inicia tareas ya
+  configuradas** en gvmd, por UUID. Antes de iniciarla lee de gvmd los hosts
+  reales del objetivo de la tarea y exige que **todos** estén dentro del
+  `target` validado por la política y firmado en la aprobación. Así, editar la
+  tarea en Greenbone para ampliar su alcance no burla la aprobación. Nombres DNS
+  o rangos no verificables se rechazan. No inicia tareas ya en curso.
+- `get_greenbone_results` (`risk: low`, sólo lectura): resultados con QoD ≥ 70 y
+  overrides aplicados (host, puerto, NVT, severidad, CVE). Si el informe contiene
+  hosts fuera del objetivo se rechaza sin nombrarlos.
+- Conexión por socket Unix (`GREENBONE_SOCKET_PATH`) o TLS
+  (`GREENBONE_HOST`/`PORT` + `GREENBONE_CAFILE`); credenciales sólo en `.env`.
+  `python-gvm` parsea con `resolve_entities=False` (sin XXE).
+- Ambas herramientas vienen deshabilitadas en `config/policy.yaml`.
+
+Pendiente en la Fase 5: DefectDojo.

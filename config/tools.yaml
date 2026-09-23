@@ -23,3 +23,7 @@ tools:
     purpose: Iniciar una tarea previamente configurada en Greenbone.
     target_argument: target
     side_effect: active_scan
+  - name: get_greenbone_results
+    purpose: Leer los resultados de un informe de Greenbone del objetivo autorizado.
+    target_argument: target
+    side_effect: read_only

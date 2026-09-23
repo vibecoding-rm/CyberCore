@@ -38,6 +38,11 @@ from app.tools.mock_inventory import MockInventoryTool
 from app.tools.nmap import NmapDiscoverHostsTool, NmapInspectServicesTool
 from app.tools.nuclei import NucleiSafeTool
 from app.tools.nuclei_catalog import NucleiTemplateCatalog
+from app.tools.greenbone import (
+    GreenboneResultsTool,
+    GreenboneSettings,
+    GreenboneStartTaskTool,
+)
 from app.tools.wazuh import WazuhInventoryTool, WazuhSettings
 
 
@@ -86,6 +91,8 @@ async def lifespan(app: FastAPI):
             mode=settings.tool_mode,
         ),
         WazuhInventoryTool(_wazuh_settings(settings), mode=settings.tool_mode),
+        GreenboneStartTaskTool(_greenbone_settings(settings), mode=settings.tool_mode),
+        GreenboneResultsTool(_greenbone_settings(settings), mode=settings.tool_mode),
     ]
     app.state.evidence_store = PostgresExecutionJournal(
         settings.database_url,
@@ -121,6 +128,21 @@ def _wazuh_settings(settings) -> WazuhSettings | None:
         password=settings.wazuh_api_password,
         verify_tls=settings.wazuh_verify_tls,
         ca_bundle=settings.wazuh_ca_bundle or None,
+    )
+
+
+def _greenbone_settings(settings) -> GreenboneSettings | None:
+    if not settings.greenbone_user or not (
+        settings.greenbone_socket_path or settings.greenbone_host
+    ):
+        return None
+    return GreenboneSettings(
+        user=settings.greenbone_user,
+        password=settings.greenbone_password,
+        socket_path=settings.greenbone_socket_path or None,
+        host=settings.greenbone_host or None,
+        port=settings.greenbone_port,
+        cafile=settings.greenbone_cafile or None,
     )
 
 
