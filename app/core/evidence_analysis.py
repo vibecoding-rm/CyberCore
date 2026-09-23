@@ -1,6 +1,14 @@
 from typing import Any
 
 from app.api.models import Evidence, EvidenceAssessment, EvidenceGap
+from app.intelligence.matching import VersionMatch
+
+_VERDICT_TEXT = {
+    "affected": "dentro de un rango afectado",
+    "not_affected": "fuera de todos los rangos afectados",
+    "indeterminate": "sin comparación concluyente",
+    "no_data": "sin rangos almacenados",
+}
 
 
 class EvidenceGapAnalyzer:
@@ -9,6 +17,7 @@ class EvidenceGapAnalyzer:
         evidence: Evidence,
         vulnerability_id: str | None,
         vulnerability_info: dict[str, Any] | None = None,
+        version_matches: list[VersionMatch] | None = None,
     ) -> EvidenceAssessment:
         services = self._services(evidence.data)
         open_services = [service for service in services if service.get("state") == "open"]
@@ -35,9 +44,22 @@ class EvidenceGapAnalyzer:
                 observations.append(
                     f"Información de referencia: {vulnerability_info['title']}."
                 )
+        matches = version_matches or []
+        for match in matches:
+            observations.append(
+                f"{match.product_key} {match.installed_version or '(sin versión)'}: "
+                f"{_VERDICT_TEXT[match.verdict]} de {match.vulnerability_id}."
+            )
+            observations.extend(match.notes)
+        range_resolved = any(m.verdict in {"affected", "not_affected"} for m in matches)
+        simulated = evidence.data.get("source") == "simulated"
+        # "probable" = product and version match a published range; it still
+        # needs independent validation, so it can never become "confirmed" here.
+        probable = not simulated and any(m.verdict == "affected" for m in matches)
+
         missing: list[EvidenceGap] = []
 
-        if evidence.data.get("source") == "simulated":
+        if simulated:
             missing.append(
                 EvidenceGap(
                     code="real_inventory",
@@ -78,18 +100,20 @@ class EvidenceGapAnalyzer:
                 )
             )
 
-        missing.extend(
-            [
-                EvidenceGap(
-                    code="authoritative_advisory",
-                    description=(
-                        "No hay un advisory autoritativo vinculado a la observación."
-                    ),
-                    recommended_action=(
-                        "Consultar primero al proveedor y después fuentes como CISA, "
-                        "NVD u OSV, conservando procedencia y fecha."
-                    ),
+        missing.append(
+            EvidenceGap(
+                code="authoritative_advisory",
+                description=(
+                    "No hay un advisory autoritativo vinculado a la observación."
                 ),
+                recommended_action=(
+                    "Consultar primero al proveedor y después fuentes como CISA, "
+                    "NVD u OSV, conservando procedencia y fecha."
+                ),
+            )
+        )
+        if not range_resolved:
+            missing.append(
                 EvidenceGap(
                     code="affected_version_range",
                     description=(
@@ -99,28 +123,39 @@ class EvidenceGapAnalyzer:
                         "Resolver el rango de versiones del advisory y compararlo sin "
                         "usar coincidencias de texto aproximadas."
                     ),
+                )
+            )
+        missing.append(
+            EvidenceGap(
+                code="independent_validation",
+                description="No existe una validación independiente reproducible.",
+                recommended_action=(
+                    "Realizar una comprobación segura y autorizada antes de elevar "
+                    "el hallazgo a confirmado."
                 ),
-                EvidenceGap(
-                    code="independent_validation",
-                    description="No existe una validación independiente reproducible.",
-                    recommended_action=(
-                        "Realizar una comprobación segura y autorizada antes de elevar "
-                        "el hallazgo a confirmado."
-                    ),
-                ),
-            ]
+            )
         )
 
+        if probable:
+            conclusion = (
+                "El producto y la versión caen en un rango afectado publicado: el "
+                "hallazgo es probable, pero falta validación independiente para "
+                "confirmarlo."
+            )
+        else:
+            conclusion = (
+                "La evidencia actual sólo permite mantener un candidato; no permite "
+                "afirmar que el activo es vulnerable."
+            )
         return EvidenceAssessment(
+            finding_status="probable" if probable else "candidate",
             target=evidence.target,
             vulnerability_id=vulnerability_id,
             source_evidence_id=evidence.evidence_id,
             observations=observations,
             missing_evidence=missing,
-            conclusion=(
-                "La evidencia actual sólo permite mantener un candidato; no permite "
-                "afirmar que el activo es vulnerable."
-            ),
+            version_matches=matches,
+            conclusion=conclusion,
         )
 
     @staticmethod

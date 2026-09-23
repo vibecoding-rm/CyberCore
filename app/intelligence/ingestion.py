@@ -3,7 +3,12 @@ from pathlib import Path
 from typing import Any
 import httpx
 
+from app.intelligence.nvd import NvdClient
+from app.intelligence.osv import OsvClient, parse_osv_record
 from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
+
+# OSV links a CVE to many distro/ecosystem advisories; cap the fan-out per CVE.
+MAX_OSV_ALIASES_PER_CVE = 10
 
 
 CISA_KEV_FEED_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
@@ -203,3 +208,48 @@ class VulnerabilityIngestService:
                 epss_count += 1
 
         return {"seeded_kev": kev_count, "seeded_epss": epss_count}
+
+    async def enrich_from_nvd(
+        self,
+        cve_ids: list[str],
+        client: NvdClient,
+    ) -> list[dict[str, Any]]:
+        """Fetch each CVE from NVD and store its payload, metrics and CPE ranges."""
+        results: list[dict[str, Any]] = []
+        for cve_id in cve_ids:
+            record, raw = await client.fetch_cve(cve_id)
+            if record is None:
+                results.append({"vulnerability_id": cve_id.upper(), "status": "not_found"})
+                continue
+            stored = await self.repository.store_intel_record(record, raw)
+            results.append({**stored, "status": "stored"})
+        return results
+
+    async def enrich_from_osv(
+        self,
+        cve_id: str,
+        client: OsvClient,
+        max_aliases: int = MAX_OSV_ALIASES_PER_CVE,
+    ) -> list[dict[str, Any]]:
+        """Store the OSV record of a CVE and of the advisories that alias it.
+
+        Every related record is attached to the CVE so its package ranges can
+        be evaluated; the original record id is kept in the provenance table.
+        """
+        cve_clean = cve_id.strip().upper()
+        raw = await client.get_vulnerability(cve_clean)
+        if raw is None:
+            return [{"vulnerability_id": cve_clean, "status": "not_found"}]
+        primary = parse_osv_record(raw)
+        results = [
+            {**await self.repository.store_intel_record(primary, raw, cve_clean), "status": "stored"}
+        ]
+        related = [a for a in primary.aliases if a != cve_clean][:max_aliases]
+        for alias in related:
+            alias_raw = await client.get_vulnerability(alias)
+            if alias_raw is None:
+                continue
+            alias_record = parse_osv_record(alias_raw)
+            stored = await self.repository.store_intel_record(alias_record, alias_raw, cve_clean)
+            results.append({**stored, "osv_id": alias_record.vulnerability_id, "status": "stored"})
+        return results

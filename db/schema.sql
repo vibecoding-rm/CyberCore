@@ -48,7 +48,45 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     kev BOOLEAN,
     cwe_ids TEXT[] NOT NULL DEFAULT '{}',
     source_updated_at TIMESTAMPTZ,
-    ingested_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    ingested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    cvss_vector TEXT,
+    cvss_version TEXT,
+    aliases TEXT[] NOT NULL DEFAULT '{}',
+    published_at TIMESTAMPTZ
+);
+
+-- Original NVD/OSV payloads, kept verbatim and hashed as provenance.
+CREATE TABLE IF NOT EXISTS intel_source_records (
+    id BIGSERIAL PRIMARY KEY,
+    source TEXT NOT NULL CHECK (source IN ('nvd', 'osv')),
+    record_id TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    sha256 CHAR(64) NOT NULL,
+    raw_data JSONB NOT NULL,
+    source_modified_at TIMESTAMPTZ,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (source, record_id, sha256)
+);
+
+CREATE TABLE IF NOT EXISTS vulnerability_affected_ranges (
+    id BIGSERIAL PRIMARY KEY,
+    vulnerability_id TEXT NOT NULL
+        REFERENCES vulnerabilities(vulnerability_id) ON DELETE CASCADE,
+    source TEXT NOT NULL CHECK (source IN ('nvd', 'osv')),
+    source_record_id BIGINT NOT NULL REFERENCES intel_source_records(id),
+    match_kind TEXT NOT NULL CHECK (match_kind IN ('cpe', 'package')),
+    vendor TEXT,
+    product TEXT NOT NULL,
+    ecosystem TEXT,
+    range_type TEXT NOT NULL CHECK (range_type IN ('cpe', 'semver', 'ecosystem', 'exact')),
+    exact_version TEXT,
+    version_start_including TEXT,
+    version_start_excluding TEXT,
+    version_end_including TEXT,
+    version_end_excluding TEXT,
+    requires_platform BOOLEAN NOT NULL DEFAULT false,
+    criteria TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS approvals (
@@ -161,3 +199,9 @@ CREATE INDEX IF NOT EXISTS idx_executions_status ON executions (status);
 CREATE INDEX IF NOT EXISTS idx_evidence_execution_id ON evidence (execution_id);
 CREATE INDEX IF NOT EXISTS idx_findings_status ON findings (status);
 CREATE INDEX IF NOT EXISTS idx_documents_fts ON documents USING gin (to_tsvector('simple', content));
+CREATE INDEX IF NOT EXISTS idx_affected_ranges_vulnerability
+    ON vulnerability_affected_ranges (vulnerability_id, source);
+CREATE INDEX IF NOT EXISTS idx_affected_ranges_product
+    ON vulnerability_affected_ranges (match_kind, vendor, product);
+CREATE INDEX IF NOT EXISTS idx_intel_source_records_record
+    ON intel_source_records (source, record_id, fetched_at DESC);

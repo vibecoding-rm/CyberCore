@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql" alt="PostgreSQL 16">
   <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi" alt="FastAPI">
   <img src="https://img.shields.io/badge/Ollama-Local%20Inference-black?logo=ollama" alt="Ollama">
-  <img src="https://img.shields.io/badge/Tests-142%20Passing-brightgreen?logo=pytest" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-174%20Passing-brightgreen?logo=pytest" alt="Tests">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License">
 </p>
 
@@ -66,7 +66,7 @@ En CyberCore:
 ┌──────────────────────────────────────────────────────────────────┐
 │             Persistencia e Inteligencia (PostgreSQL)             │
 │   ├── assets & services   -> Inventario observable actualizado   │
-│   ├── vulnerabilities     -> CISA KEV (Known Exploited) + EPSS   │
+│   ├── vulnerabilities     -> KEV + EPSS + NVD/OSV (rangos)      │
 │   └── evidence & findings -> Evaluación con EvidenceGapAnalyzer  │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -121,7 +121,7 @@ python scripts/ingest_vulnerabilities.py --baseline
 ```
 
 ### 4. Ejecutar la suite de pruebas
-CyberCore cuenta con **142 pruebas automatizadas** que garantizan el control de alcance, aprobaciones y persistencia:
+CyberCore cuenta con **174 pruebas automatizadas** (más 18 de integración con PostgreSQL) que garantizan el control de alcance, aprobaciones y persistencia:
 ```bash
 pytest
 ```
@@ -163,6 +163,8 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 | `GET` | `/v1/assets` | `operator` | Lista activos descubiertos y servicios observados. |
 | `GET` | `/v1/assets/{address}` | `operator` | Detalle de un activo por dirección IP. |
 | `GET` | `/v1/vulnerabilities` | `operator` | Consulta catálogo de CVEs, CISA KEV y EPSS. |
+| `GET` | `/v1/vulnerabilities/{id}/ranges` | `operator` | Rangos afectados NVD/OSV con hash de su registro de origen. |
+| `POST` | `/v1/vulnerabilities/match` | `operator` | Compara un CPE o versión de paquete con los rangos almacenados. |
 
 ---
 

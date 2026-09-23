@@ -11,6 +11,7 @@ from app.api.models import (
     ToolRequest,
     ToolRequestInput,
     ToolResponse,
+    VersionMatchRequest,
 )
 from app.agent.models import AgentRunResult, OrchestratorRunRequest
 from app.agent.orchestrator import CyberCoreOrchestrator
@@ -19,13 +20,17 @@ from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
+from app.intelligence.matching import VersionMatch, VulnerabilityMatcher
 from app.llm.factory import create_chat_client
 from app.settings import get_settings
 from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
-from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
+from app.storage.postgres_vulnerabilities import (
+    PostgresVulnerabilityRepository,
+    VulnerabilityStoreError,
+)
 from app.tools.mock_inventory import MockInventoryTool
 from app.tools.nmap import NmapDiscoverHostsTool, NmapInspectServicesTool
 
@@ -59,6 +64,9 @@ async def lifespan(app: FastAPI):
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
     app.state.evidence_analyzer = EvidenceGapAnalyzer()
+    app.state.vulnerability_matcher = VulnerabilityMatcher(
+        app.state.vulnerability_repository
+    )
 
     tools: list[ToolAdapter] = [
         MockInventoryTool(),
@@ -253,6 +261,7 @@ async def analyze_inventory(
             pass
 
         vuln_info = None
+        version_matches: list[VersionMatch] = []
         if request.vulnerability_id:
             try:
                 vuln_info = await app.state.vulnerability_repository.get_vulnerability(
@@ -260,11 +269,16 @@ async def analyze_inventory(
                 )
             except Exception:
                 pass
+            version_matches = await _match_observed_services(
+                request.vulnerability_id,
+                inventory.evidence.data,
+            )
 
         assessment = app.state.evidence_analyzer.analyze(
             inventory.evidence,
             request.vulnerability_id,
             vulnerability_info=vuln_info,
+            version_matches=version_matches,
         )
     return InventoryAssessmentResponse(
         inventory=inventory,
@@ -317,6 +331,65 @@ async def get_vulnerability(
             detail=f"Vulnerabilidad {vulnerability_id} no encontrada en la base local",
         )
     return vuln
+
+
+@app.get("/v1/vulnerabilities/{vulnerability_id}/ranges")
+async def get_vulnerability_ranges(
+    vulnerability_id: str,
+    principal: Principal = Depends(require_operator),
+) -> list[dict]:
+    try:
+        return await app.state.vulnerability_repository.get_affected_ranges(vulnerability_id)
+    except VulnerabilityStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El almacén de vulnerabilidades no está disponible",
+        ) from exc
+
+
+@app.post("/v1/vulnerabilities/match", response_model=VersionMatch)
+async def match_vulnerability_version(
+    request: VersionMatchRequest,
+    principal: Principal = Depends(require_operator),
+) -> VersionMatch:
+    matcher: VulnerabilityMatcher = app.state.vulnerability_matcher
+    try:
+        if request.cpe is not None:
+            return await matcher.match_cpe(request.vulnerability_id, request.cpe)
+        return await matcher.match_package(
+            request.vulnerability_id,
+            request.ecosystem,
+            request.package,
+            request.version,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    except VulnerabilityStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El almacén de vulnerabilidades no está disponible",
+        ) from exc
+
+
+async def _match_observed_services(
+    vulnerability_id: str,
+    inventory_data: dict,
+) -> list[VersionMatch]:
+    """Evaluate every open service that carries a CPE fingerprint."""
+    matches: list[VersionMatch] = []
+    for service in inventory_data.get("services") or []:
+        if not isinstance(service, dict) or service.get("state") != "open":
+            continue
+        cpe = service.get("cpe")
+        if not isinstance(cpe, str) or not cpe:
+            continue
+        try:
+            matches.append(
+                await app.state.vulnerability_matcher.match_cpe(vulnerability_id, cpe)
+            )
+        except (ValueError, VulnerabilityStoreError):
+            continue
+    return matches
 
 
 @app.post(

@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.intelligence.matching import VersionMatch
 
 
 class ToolRequestInput(BaseModel):
@@ -103,13 +105,14 @@ class EvidenceAssessment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     outcome: Literal["need_more_evidence"] = "need_more_evidence"
-    finding_status: Literal["candidate"] = "candidate"
+    finding_status: Literal["candidate", "probable"] = "candidate"
     can_confirm: Literal[False] = False
     target: str
     vulnerability_id: str | None
     source_evidence_id: str
     observations: list[str]
     missing_evidence: list[EvidenceGap]
+    version_matches: list[VersionMatch] = Field(default_factory=list)
     conclusion: str
 
 
@@ -118,3 +121,24 @@ class InventoryAssessmentResponse(BaseModel):
 
     inventory: ToolResponse
     assessment: EvidenceAssessment | None = None
+
+
+class VersionMatchRequest(BaseModel):
+    """Either an observed CPE (as reported by Nmap) or an OSV package version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vulnerability_id: str = Field(pattern=r"^CVE-[0-9]{4}-[0-9]{4,19}$")
+    cpe: str | None = Field(default=None, min_length=7, max_length=256)
+    ecosystem: str | None = Field(default=None, min_length=1, max_length=64)
+    package: str | None = Field(default=None, min_length=1, max_length=256)
+    version: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def require_one_subject(self) -> "VersionMatchRequest":
+        package_fields = (self.ecosystem, self.package, self.version)
+        if self.cpe is not None and any(f is not None for f in package_fields):
+            raise ValueError("Indica cpe o ecosystem/package/version, no ambos")
+        if self.cpe is None and not all(f is not None for f in package_fields):
+            raise ValueError("Se requiere cpe o ecosystem, package y version")
+        return self

@@ -7,13 +7,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.event_loop import configure_windows_asyncio
 from app.intelligence.ingestion import VulnerabilityIngestService
+from app.intelligence.nvd import NvdClient, NvdError
+from app.intelligence.osv import OsvClient, OsvError
 from app.settings import get_settings
 from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
 
 
 async def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Ingiere feeds de inteligencia de vulnerabilidades (CISA KEV y EPSS) en CyberCore PostgreSQL."
+        description="Ingiere inteligencia de vulnerabilidades (CISA KEV, EPSS, NVD y OSV) en CyberCore PostgreSQL."
     )
     parser.add_argument(
         "--baseline",
@@ -37,6 +39,29 @@ async def main() -> None:
         help="Ruta a un archivo JSON local de CISA KEV para ingesta sin conexión",
     )
     parser.add_argument(
+        "--nvd",
+        action="store_true",
+        help="Enriquece con NVD (CVSS, CWE y rangos CPE) los CVE indicados o los KEV almacenados",
+    )
+    parser.add_argument(
+        "--osv",
+        action="store_true",
+        help="Enriquece con OSV (rangos por paquete y alias) los CVE indicados o los KEV almacenados",
+    )
+    parser.add_argument(
+        "--cve",
+        action="append",
+        default=[],
+        metavar="CVE-AAAA-NNNN",
+        help="CVE concreto a enriquecer (repetible). Sin él se usan los KEV almacenados",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Máximo de CVE KEV a enriquecer cuando no se indica --cve (NVD sin clave: ~6 s por CVE)",
+    )
+    parser.add_argument(
         "--summary",
         action="store_true",
         help="Muestra resumen del número de vulnerabilidades en la base de datos",
@@ -45,7 +70,7 @@ async def main() -> None:
     args = parser.parse_args()
 
     # If no flags given, default to showing summary and offering baseline
-    if not (args.baseline or args.kev or args.epss or args.file or args.summary):
+    if not (args.baseline or args.kev or args.epss or args.file or args.summary or args.nvd or args.osv):
         parser.print_help()
         sys.exit(1)
 
@@ -85,7 +110,37 @@ async def main() -> None:
         else:
             print("    -> No hay CVEs en la base de datos para consultar EPSS.")
 
-    if args.summary or args.baseline or args.kev or args.file or args.epss:
+    if args.nvd or args.osv:
+        cves = [c.strip().upper() for c in args.cve]
+        if not cves:
+            items = await repo.list_vulnerabilities(limit=args.limit, kev_only=True)
+            cves = [item["vulnerability_id"] for item in items]
+        if not cves:
+            print("    -> No hay CVE para enriquecer. Usa --cve o ingiere KEV primero.")
+
+    if args.nvd and cves:
+        mode = "con clave" if settings.nvd_api_key else "sin clave (6 s entre solicitudes)"
+        print(f"[+] Enriqueciendo {len(cves)} CVE desde NVD {mode}...")
+        async with NvdClient(api_key=settings.nvd_api_key or None) as nvd:
+            for cve in cves:
+                try:
+                    [result] = await service.enrich_from_nvd([cve], nvd)
+                    print(f"    -> {cve}: {result['status']}, {result.get('ranges', 0)} rangos")
+                except (NvdError, ValueError) as exc:
+                    print(f"[-] {cve}: {exc}", file=sys.stderr)
+
+    if args.osv and cves:
+        print(f"[+] Enriqueciendo {len(cves)} CVE desde OSV...")
+        async with OsvClient() as osv:
+            for cve in cves:
+                try:
+                    results = await service.enrich_from_osv(cve, osv)
+                    ranges = sum(r.get("ranges", 0) for r in results)
+                    print(f"    -> {cve}: {len(results)} registro(s), {ranges} rangos")
+                except (OsvError, ValueError) as exc:
+                    print(f"[-] {cve}: {exc}", file=sys.stderr)
+
+    if args.summary or args.baseline or args.kev or args.file or args.epss or args.nvd or args.osv:
         stats = await repo.count_vulnerabilities()
         print("\n=== Resumen de Base de Datos CyberCore ===")
         print(f" Total vulnerabilidades: {stats['total']}")

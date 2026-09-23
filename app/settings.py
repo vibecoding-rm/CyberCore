@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     ollama_context_tokens: int = 8192
     orchestrator_model: str = "qwen3.5:9b"
     analyst_model: str = "foundation-sec-8b-reasoning"
+    nvd_api_key: str = ""
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"
 
