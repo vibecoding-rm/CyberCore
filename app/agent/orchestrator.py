@@ -20,6 +20,8 @@ from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
 
 logger = logging.getLogger(__name__)
 
+ORCHESTRATOR_MAX_TOKENS = 768
+
 
 class CyberCoreOrchestrator:
     def __init__(
@@ -118,7 +120,9 @@ class CyberCoreOrchestrator:
                     messages=messages,
                     response_schema=AgentThoughtAndAction.model_json_schema(),
                     think=False,
-                    num_predict=256,
+                    # 256 cut off long final summaries mid-JSON and failed the
+                    # whole run (3 of 83 traces on 2026-09-24).
+                    num_predict=ORCHESTRATOR_MAX_TOKENS,
                     num_ctx=2048,
                 )
                 trace_step.raw_output = completion.content

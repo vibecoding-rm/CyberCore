@@ -327,3 +327,22 @@ async def test_discovery_observation_shows_addresses_from_nmap_output(broker):
     observation = result.steps[0].observation
     assert "IP: 192.168.10.25" in observation
     assert "None" not in observation
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_leaves_room_for_long_final_summaries(broker):
+    seen = {}
+
+    class Recorder(MockLLMClient):
+        async def chat_structured(self, model, messages, response_schema, **kwargs):
+            seen.update(kwargs)
+            return await super().chat_structured(model, messages, response_schema, **kwargs)
+
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=Recorder([{"thought": "t", "action_type": "final_answer", "final_summary": "s"}]),
+        model_name="m",
+        broker=broker,
+    )
+    await orchestrator.run("Pregunta")
+
+    assert seen["num_predict"] >= 512
