@@ -21,6 +21,7 @@ from app.api.models import (
 )
 from app.agent.models import AgentRunResult, OrchestratorRunRequest
 from app.agent.orchestrator import CyberCoreOrchestrator
+from app.agent.prompts import render_system_prompt
 from app.agent.traces import (
     AgentTrace,
     TraceReview,
@@ -122,8 +123,9 @@ async def lifespan(app: FastAPI):
         settings.database_url,
         settings.database_connect_timeout_seconds,
     )
+    policy = PolicyEngine(settings.policy_file)
     app.state.broker = ToolBroker(
-        policy=PolicyEngine(settings.policy_file),
+        policy=policy,
         tools=tools,
         tool_mode=settings.tool_mode,
         journal=app.state.evidence_store,
@@ -139,6 +141,7 @@ async def lifespan(app: FastAPI):
         vuln_repo=app.state.vulnerability_repository,
         analyzer=app.state.evidence_analyzer,
         trace_recorder=app.state.trace_repository,
+        system_prompt=render_system_prompt(policy),
     )
     yield
     await app.state.llm_client.aclose()

@@ -161,3 +161,29 @@ def test_current_system_prompt_replaces_the_recorded_one():
     splits, stats = build_dataset([(t, approve(t))], in_scope)
     assert all_examples(splits)[0]["messages"][0]["content"] == "prompt antiguo"
     assert stats.system_prompt_replaced == 0
+
+
+def test_out_of_scope_tool_calls_can_be_dropped_with_later_steps():
+    call_out = json.dumps({"thought": "t", "action_type": "call_tool", "tool": "inspect_services",
+                           "arguments": {"target": "172.16.1.50"}})
+    call_in = json.dumps({"thought": "t", "action_type": "call_tool", "tool": "get_mock_inventory",
+                          "arguments": {"target": "192.168.10.25"}})
+    steps = ["paso 1", "paso 2"]
+    corrected = trace("Escanea 172.16.1.50", ["{roto", action()], steps)
+    plain = trace("Inventario de 192.168.10.25", [call_in, action()], steps)
+    uncorrected = trace("Servicios de 172.16.3.20", [call_out, action()], steps)
+    reviewed = [
+        (corrected, approve(corrected, {1: json.loads(call_out)})),
+        (plain, approve(plain)),
+        (uncorrected, approve(uncorrected)),
+    ]
+
+    kept, _ = build_dataset(reviewed, in_scope)
+    assert len(all_examples(kept)) == 5  # 1 (corrected, then stop) + 2 + 2
+
+    splits, stats = build_dataset(reviewed, in_scope, drop_out_of_scope_calls=True)
+    examples = all_examples(splits)
+    assert stats.dropped["out_of_scope_call"] == 2
+    # The corrected out-of-scope step goes, and so does the step after it.
+    assert stats.dropped["after_correction"] == 1
+    assert len(examples) == 3

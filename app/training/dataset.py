@@ -18,6 +18,9 @@ Rules, in order:
     it replaces the one recorded in the trace, so every example is trained
     with the prompt the model will actually receive (targets are reviewed
     answers, valid under the current rules).
+  - With `drop_out_of_scope_calls`, a target that calls a tool on an address
+    outside the scope is dropped: the prompt now states the scope and says
+    not to call it.
   - Exact duplicates are merged; identical inputs with different targets are
     ambiguous and all dropped.
   - Families (normalized operator intent) never cross splits, and intents that
@@ -141,11 +144,20 @@ def canonical_target(raw: str | AgentThoughtAndAction) -> str:
     return json.dumps(action.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
 
 
+def _calls_out_of_scope(target: str, in_scope: Callable[[str], bool]) -> bool:
+    action = json.loads(target)
+    if action.get("action_type") != "call_tool":
+        return False
+    address = (action.get("arguments") or {}).get("target")
+    return not (isinstance(address, str) and in_scope(address))
+
+
 def build_dataset(
     reviewed: Iterable[tuple[AgentTrace, TraceReview]],
     in_scope: Callable[[str], bool],
     excluded_intents: Iterable[str] = (),
     system_prompt: str | None = None,
+    drop_out_of_scope_calls: bool = False,
 ) -> tuple[dict[str, list[dict[str, Any]]], DatasetStats]:
     stats = DatasetStats()
     excluded = {normalize_intent(intent) for intent in excluded_intents}
@@ -167,6 +179,16 @@ def build_dataset(
                 target = canonical_target(correction or step.raw_output or "")
             except (ValidationError, ValueError):
                 stats.dropped["invalid_output"] += 1
+                continue
+            if drop_out_of_scope_calls and _calls_out_of_scope(target, in_scope):
+                # Reviewed before the prompt stated the scope ("call it and
+                # let the policy decide"); now the prompt says not to call.
+                stats.dropped["out_of_scope_call"] += 1
+                if correction is not None:
+                    later = [s for s in trace.steps if s.step_number > step.step_number]
+                    stats.steps_seen += len(later)
+                    stats.dropped["after_correction"] += len(later)
+                    break
                 continue
             messages = []
             for message in step.messages:

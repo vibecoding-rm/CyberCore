@@ -346,3 +346,21 @@ async def test_orchestrator_leaves_room_for_long_final_summaries(broker):
     await orchestrator.run("Pregunta")
 
     assert seen["num_predict"] >= 512
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_sends_the_policy_scope_in_its_system_prompt(broker):
+    from app.agent.prompts import render_system_prompt
+
+    store = RecordingTraceStore()
+    prompt = render_system_prompt(broker.policy)
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=MockLLMClient([{"thought": "t", "action_type": "final_answer", "final_summary": "s"}]),
+        model_name="m", broker=broker, trace_recorder=store, system_prompt=prompt,
+    )
+
+    await orchestrator.run("¿Qué alcance tengo?")
+
+    system = store.traces[0].steps[0].messages[0]["content"]
+    assert system == prompt
+    assert "ALCANCE AUTORIZADO" in system and "192.168.10.0/24" in system

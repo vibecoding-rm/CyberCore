@@ -9,7 +9,7 @@ from app.agent.models import (
     AgentStep,
     AgentThoughtAndAction,
 )
-from app.agent.prompts import build_agent_step_prompt
+from app.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT, build_agent_step_prompt
 from app.agent.traces import AgentTrace, TraceRecorder, TraceStep
 from app.api.models import ToolRequest
 from app.core.evidence_analysis import EvidenceGapAnalyzer
@@ -34,6 +34,7 @@ class CyberCoreOrchestrator:
         analyzer: EvidenceGapAnalyzer | None = None,
         max_steps: int = 5,
         trace_recorder: TraceRecorder | None = None,
+        system_prompt: str = ORCHESTRATOR_SYSTEM_PROMPT,
     ):
         if max_steps < 1 or max_steps > 15:
             raise ValueError("max_steps debe estar entre 1 y 15")
@@ -45,6 +46,7 @@ class CyberCoreOrchestrator:
         self.analyzer = analyzer or EvidenceGapAnalyzer()
         self.max_steps = max_steps
         self.trace_recorder = trace_recorder
+        self.system_prompt = system_prompt
 
     async def run(
         self,
@@ -110,6 +112,7 @@ class CyberCoreOrchestrator:
                 step_number=step_idx,
                 operator_intent=operator_intent,
                 previous_steps=[s.model_dump() for s in steps],
+                system_prompt=self.system_prompt,
             )
 
             trace_step = TraceStep(step_number=step_idx, messages=messages)

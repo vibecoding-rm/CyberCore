@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT
+from app.agent.prompts import render_system_prompt
 from app.core.policy import PolicyEngine
 from app.event_loop import psycopg_compatible_loop
 from app.evaluation.benchmark import BenchmarkSuite
@@ -55,13 +55,15 @@ async def main() -> int:
     policy = PolicyEngine(settings.policy_file)
     repo = PostgresTraceRepository(settings.database_url, settings.database_connect_timeout_seconds)
     reviewed = await load_reviewed(repo)
+    system_prompt = render_system_prompt(policy)
     benchmark_prompts = [case.prompt for case in BenchmarkSuite.from_yaml(BENCHMARK).cases]
 
     splits, stats = build_dataset(
         reviewed,
         in_scope=lambda target: policy._validate_scope(target) is None,
         excluded_intents=benchmark_prompts,
-        system_prompt=ORCHESTRATOR_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
+        drop_out_of_scope_calls=True,
     )
     if stats.kept < args.min_examples:
         print(
@@ -86,7 +88,7 @@ async def main() -> int:
         "source": "agent_runs/agent_steps con última revisión 'approved'",
         "license": "Uso interno; derivado de operaciones propias, no redistribuir",
         "sanitizer_version": SANITIZER_VERSION,
-        "system_prompt_sha256": hashlib.sha256(ORCHESTRATOR_SYSTEM_PROMPT.encode()).hexdigest(),
+        "system_prompt_sha256": hashlib.sha256(system_prompt.encode()).hexdigest(),
         "policy_sha256": sha256_file(Path(settings.policy_file)),
         "benchmark_sha256": sha256_file(BENCHMARK),
         "system_prompt_replaced": stats.system_prompt_replaced,
