@@ -353,7 +353,8 @@ def to_gguf(adapter: str, quantization: str = "Q4_K_M") -> dict:
 
 
 @app.local_entrypoint()
-def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str = "test"):
+def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str = "test",
+         epochs: float = 2.0, learning_rate: float = 2e-4):
     if action == "gguf":
         if not adapter:
             raise SystemExit("Uso: --action gguf --adapter <nombre>")
@@ -381,7 +382,7 @@ def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str
     verify_manifest(local)
     with data_volume.batch_upload(force=True) as batch:
         batch.put_directory(str(local), f"/datasets/{dataset}")
-    summary = train.remote(dataset, adapter)
+    summary = train.remote(dataset, adapter, epochs=epochs, learning_rate=learning_rate)
     print(json.dumps({k: v for k, v in summary.items() if k != "log_history"}, indent=2, default=str))
 
     target = LOCAL_ADAPTERS / adapter
