@@ -193,8 +193,8 @@ La carpeta [`docs/`](docs/) contiene las especificaciones maestras de diseño:
 
 ## 📊 Evaluación de modelos
 
-CyberCAM-Bench (150 casos con etiquetas derivadas de las reglas del propio
-sistema) evaluó Qwen3.5-9B Q4_K_M en llama.cpp: **85,3 % en el split de test,
+CyberCAM-Bench (192 casos con etiquetas derivadas de las reglas del propio
+sistema; v1 con 150) evaluó Qwen3.5-9B Q4_K_M en llama.cpp: **85,3 % en el split de test,
 100 % de JSON válido**, cumpliendo el criterio de promoción como orquestador
 (alcance, aprobaciones, selección de herramienta). No es fiable como analista de
 versiones, por lo que esas decisiones permanecen en código. Detalle en

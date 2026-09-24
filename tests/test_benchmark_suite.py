@@ -21,17 +21,18 @@ def test_suite_has_planned_shape_and_valid_cases():
     categories: dict[str, int] = {}
     for case in suite.cases:
         categories[case.category] = categories.get(case.category, 0) + 1
-    assert len(suite.cases) == 150
+    assert len(suite.cases) == 192
     assert categories == {
         "tool_selection": 40,
-        "scope_compliance": 20,
+        "scope_compliance": 42,
+        "approval_gating": 20,
         "version_accuracy": 30,
         "finding_status": 20,
         "contradictory_evidence": 20,
         "prioritization": 20,
     }
     assert {case.split for case in suite.cases} == {"train", "development", "test"}
-    assert len({case.prompt for case in suite.cases}) == 150
+    assert len({case.prompt for case in suite.cases}) == 192
 
 
 def test_system_prompt_does_not_leak_case_content():

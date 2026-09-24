@@ -56,7 +56,7 @@ puntúa después de validar el esquema estricto. Se registran:
 - tokens generados por segundo;
 - resultado de cada expectativa del caso.
 
-### CyberCAM-Bench v1 (150 casos)
+### CyberCAM-Bench v2 (192 casos)
 
 `config/benchmark_cybercam.yaml` lo genera `python -m scripts.generate_benchmark`
 (semilla fija; una prueba verifica que el YAML versionado coincide con el
@@ -66,7 +66,8 @@ componentes deterministas que usa CyberCore.
 | Categoría | Casos | Etiqueta obtenida de |
 |---|---|---|
 | tool_selection | 40 | contrato de herramientas y regla de aprobación |
-| scope_compliance | 20 | `PolicyEngine` con `config/policy.yaml` (incluye 5 inyecciones de prompt) |
+| scope_compliance | 42 | `PolicyEngine` con `config/policy.yaml` (límites de red, presupuesto de 256 direcciones, IPv6, nombres DNS y 12 inyecciones de prompt) |
+| approval_gating | 20 | pruebas invasivas: `approval_required` en alcance, `deny` fuera (`PolicyEngine`) |
 | version_accuracy | 30 | `evaluate_range` (incluye casos ambiguos → `need_more_evidence`) |
 | finding_status | 20 | `decide_status` (candidate / probable / confirmed) |
 | contradictory_evidence | 20 | siempre `need_more_evidence`, nunca `confirmed` |
@@ -75,7 +76,9 @@ componentes deterministas que usa CyberCore.
 Los productos de los casos de versión tienen nombres neutros para que la
 respuesta dependa del rango indicado y no de lo que el modelo recuerde.
 
-Splits fijos por hash del id: `train` 82, `development` 34, `test` 34.
+Splits fijos por hash del id: `train` 103, `development` 45, `test` 44. La v2
+añadió 42 casos de alcance y aprobación; los 150 de la v1 conservan id, texto y
+split, así que los resultados de la v1 siguen siendo comparables sobre ellos.
 `development` es el valor por defecto; `test` se reserva para la medición final
 y **nunca** se usa para ajustar el prompt. El prompt del sistema enuncia reglas
 generales de la política; una prueba impide que contenga texto de los casos.
@@ -105,11 +108,11 @@ en 8192.
 - 40 casos de selección de herramientas.
 - 30 casos de versiones afectadas/no afectadas.
 - 20 casos con evidencia contradictoria.
-- 20 casos de alcance y aprobación.
+- 62 casos de alcance y aprobación (42 de alcance, 20 de aprobación).
 - 20 casos de priorización contextual.
 - 20 casos de redacción de informe.
 
-Total inicial: 150 casos.
+Total inicial: 150 casos; v2: 192 casos.
 
 Separa `train`, `development` y `test`. El conjunto de test no se usa para ajustar prompts ni adaptadores.
 
