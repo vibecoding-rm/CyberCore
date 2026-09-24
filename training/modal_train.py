@@ -288,8 +288,78 @@ def evaluate(dataset: str, adapter: str, split: str = "test", max_new_tokens: in
     return report
 
 
+@app.function(gpu=GPU, volumes=VOLUMES, timeout=2 * HOURS)
+def merge(adapter: str) -> str:
+    """Fold the LoRA into the base weights (16-bit) for GGUF conversion."""
+    from unsloth import FastLanguageModel
+
+    data_dir = Path(str(DATA_DIR))
+    output = data_dir / "merged" / adapter
+    if output.exists():
+        return str(output)
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=str(data_dir / "adapters" / adapter),
+        max_seq_length=4096,
+        load_in_4bit=False,
+        load_in_16bit=True,
+    )
+    model.save_pretrained_merged(str(output), tokenizer, save_method="merged_16bit")
+    data_volume.commit()
+    return str(output)
+
+
+# Same converter and quantizer family as the production GGUF (llama.cpp).
+gguf_image = modal.Image.from_registry("ghcr.io/ggml-org/llama.cpp:full", add_python="3.12").entrypoint([])
+
+
+@app.function(image=gguf_image, volumes=VOLUMES, timeout=2 * HOURS, memory=49152, cpu=8)
+def to_gguf(adapter: str, quantization: str = "Q4_K_M") -> dict:
+    import subprocess
+
+    data_dir = Path(str(DATA_DIR))
+    merged = data_dir / "merged" / adapter
+    out_dir = data_dir / "gguf"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    f16 = out_dir / f"{adapter}-f16.gguf"
+    final = out_dir / f"{adapter}-{quantization}.gguf"
+    if not final.exists():
+        # LoRA does not touch the tokenizer, but transformers v5 saves it as
+        # "TokenizersBackend", which the converter's transformers cannot load.
+        # Use the base model's original tokenizer files from the HF cache.
+        import shutil
+
+        snapshots = sorted((Path(str(HF_CACHE)) / "models--Qwen--Qwen3.5-9B" / "snapshots").glob("*"))
+        if not snapshots:
+            raise RuntimeError("No está en caché el tokenizer del modelo base")
+        for name in ("tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt",
+                     "special_tokens_map.json", "chat_template.jinja"):
+            source = snapshots[-1] / name
+            if source.exists():
+                shutil.copyfile(source, merged / name)
+        subprocess.run(
+            # The image's own Python has the converter deps (torch); Modal's
+            # add_python interpreter shadows "python3" on PATH.
+            ["/usr/bin/python3", "/app/convert_hf_to_gguf.py", str(merged), "--outtype", "f16", "--outfile", str(f16)],
+            check=True,
+        )
+        subprocess.run(["/app/llama-quantize", str(f16), str(final), quantization], check=True)
+        f16.unlink()
+    digest = hashlib.sha256()
+    with final.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 24), b""):
+            digest.update(chunk)
+    data_volume.commit()
+    return {"path": str(final), "sha256": digest.hexdigest(), "bytes": final.stat().st_size}
+
+
 @app.local_entrypoint()
 def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str = "test"):
+    if action == "gguf":
+        if not adapter:
+            raise SystemExit("Uso: --action gguf --adapter <nombre>")
+        print("Fusionado en:", merge.remote(adapter))
+        print(json.dumps(to_gguf.remote(adapter), indent=2))
+        return
     if action == "evaluate":
         if not dataset or not adapter:
             raise SystemExit("Uso: --action evaluate --dataset <nombre> --adapter <nombre> [--split test]")
