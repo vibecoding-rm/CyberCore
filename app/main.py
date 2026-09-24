@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status
 
@@ -19,6 +20,13 @@ from app.api.models import (
 )
 from app.agent.models import AgentRunResult, OrchestratorRunRequest
 from app.agent.orchestrator import CyberCoreOrchestrator
+from app.agent.traces import (
+    AgentTrace,
+    TraceReview,
+    TraceReviewInput,
+    TraceStoreError,
+    TraceSummary,
+)
 from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.audit import AuditStoreError, EvidenceIntegrityError
 from app.core.auth import ApiKeyAuthenticator, Principal
@@ -39,6 +47,7 @@ from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
+from app.storage.postgres_traces import PostgresTraceRepository, TraceNotFoundError
 from app.storage.postgres_vulnerabilities import (
     PostgresVulnerabilityRepository,
     VulnerabilityStoreError,
@@ -84,6 +93,10 @@ async def lifespan(app: FastAPI):
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
     app.state.evidence_analyzer = EvidenceGapAnalyzer()
+    app.state.trace_repository = PostgresTraceRepository(
+        database_url=settings.database_url,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+    )
     app.state.defectdojo_settings = _defectdojo_settings(settings)
     app.state.vulnerability_matcher = VulnerabilityMatcher(
         app.state.vulnerability_repository
@@ -124,6 +137,7 @@ async def lifespan(app: FastAPI):
         asset_repo=app.state.asset_repository,
         vuln_repo=app.state.vulnerability_repository,
         analyzer=app.state.evidence_analyzer,
+        trace_recorder=app.state.trace_repository,
     )
     yield
     await app.state.llm_client.aclose()
@@ -580,3 +594,63 @@ async def run_orchestrator(
     )
 
 
+# --- Orchestrator traces (Phase 6) -------------------------------------------
+# Traces hold operator intents and tool observations, so only approvers (the
+# human reviewers) read them. A reviewer can never review their own run.
+
+
+@app.get("/v1/traces", response_model=list[TraceSummary])
+async def list_traces(
+    limit: int = 50,
+    principal: Principal = Depends(require_approver),
+) -> list[TraceSummary]:
+    try:
+        return await app.state.trace_repository.list_runs(limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except TraceStoreError as exc:
+        raise _trace_store_unavailable() from exc
+
+
+@app.get("/v1/traces/{run_id}", response_model=AgentTrace)
+async def get_trace(
+    run_id: UUID,
+    principal: Principal = Depends(require_approver),
+) -> AgentTrace:
+    try:
+        return await app.state.trace_repository.get(run_id)
+    except TraceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Traza no encontrada"
+        ) from exc
+    except TraceStoreError as exc:
+        raise _trace_store_unavailable() from exc
+
+
+@app.post(
+    "/v1/traces/{run_id}/reviews",
+    response_model=TraceReview,
+    status_code=status.HTTP_201_CREATED,
+)
+async def review_trace(
+    run_id: UUID,
+    review: TraceReviewInput,
+    principal: Principal = Depends(require_approver),
+) -> TraceReview:
+    try:
+        return await app.state.trace_repository.add_review(run_id, principal.subject, review)
+    except TraceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Traza no encontrada"
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except TraceStoreError as exc:
+        raise _trace_store_unavailable() from exc
+
+
+def _trace_store_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="El almacén de trazas no está disponible",
+    )

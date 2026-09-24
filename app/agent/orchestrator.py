@@ -1,7 +1,8 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.agent.models import (
     AgentRunResult,
@@ -9,6 +10,7 @@ from app.agent.models import (
     AgentThoughtAndAction,
 )
 from app.agent.prompts import build_agent_step_prompt
+from app.agent.traces import AgentTrace, TraceRecorder, TraceStep
 from app.api.models import ToolRequest
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.tool_broker import ToolBroker
@@ -29,6 +31,7 @@ class CyberCoreOrchestrator:
         vuln_repo: PostgresVulnerabilityRepository | None = None,
         analyzer: EvidenceGapAnalyzer | None = None,
         max_steps: int = 5,
+        trace_recorder: TraceRecorder | None = None,
     ):
         if max_steps < 1 or max_steps > 15:
             raise ValueError("max_steps debe estar entre 1 y 15")
@@ -39,6 +42,7 @@ class CyberCoreOrchestrator:
         self.vuln_repo = vuln_repo
         self.analyzer = analyzer or EvidenceGapAnalyzer()
         self.max_steps = max_steps
+        self.trace_recorder = trace_recorder
 
     async def run(
         self,
@@ -47,6 +51,53 @@ class CyberCoreOrchestrator:
         approval_token: str | None = None,
     ) -> AgentRunResult:
         run_id = uuid4()
+        started_at = datetime.now(timezone.utc)
+        trace_steps: list[TraceStep] = []
+        result = await self._run(
+            run_id, operator_intent, requested_by, approval_token, trace_steps
+        )
+        if self.trace_recorder is not None:
+            await self._record_trace(result, requested_by, started_at, trace_steps)
+        return result
+
+    async def _record_trace(
+        self,
+        result: AgentRunResult,
+        requested_by: str,
+        started_at: datetime,
+        trace_steps: list[TraceStep],
+    ) -> None:
+        # Every model call yields exactly one AgentStep with the same number.
+        observations = {step.step_number: step.observation for step in result.steps}
+        for trace_step in trace_steps:
+            trace_step.observation = observations.get(trace_step.step_number)
+        trace = AgentTrace(
+            run_id=result.run_id,
+            requested_by=requested_by,
+            operator_intent=result.operator_intent,
+            model=self.model_name,
+            status=result.status,
+            final_report=result.final_report,
+            response_schema=AgentThoughtAndAction.model_json_schema(),
+            started_at=started_at,
+            completed_at=datetime.now(timezone.utc),
+            steps=trace_steps,
+        )
+        try:
+            await self.trace_recorder.save(trace)
+        except Exception:
+            # A trace is training material, not a control: losing one must not
+            # hide the result of a run whose tool calls are already audited.
+            logger.warning("No se pudo guardar la traza %s", result.run_id, exc_info=True)
+
+    async def _run(
+        self,
+        run_id: UUID,
+        operator_intent: str,
+        requested_by: str,
+        approval_token: str | None,
+        trace_steps: list[TraceStep],
+    ) -> AgentRunResult:
         steps: list[AgentStep] = []
         discovered_assets: list[dict[str, Any]] = []
 
@@ -59,6 +110,8 @@ class CyberCoreOrchestrator:
                 previous_steps=[s.model_dump() for s in steps],
             )
 
+            trace_step = TraceStep(step_number=step_idx, messages=messages)
+            trace_steps.append(trace_step)
             try:
                 completion = await self.llm_client.chat_structured(
                     model=self.model_name,
@@ -68,10 +121,14 @@ class CyberCoreOrchestrator:
                     num_predict=256,
                     num_ctx=2048,
                 )
+                trace_step.raw_output = completion.content
+                trace_step.prompt_tokens = completion.prompt_eval_count
+                trace_step.generated_tokens = completion.eval_count
                 action_data = json.loads(completion.content)
                 action = AgentThoughtAndAction.model_validate(action_data)
             except Exception as exc:
                 logger.error(f"Error al obtener razonamiento del LLM en paso {step_idx}: {exc}")
+                trace_step.error = str(exc)
                 steps.append(
                     AgentStep(
                         step_number=step_idx,
@@ -133,6 +190,7 @@ class CyberCoreOrchestrator:
                 approval_token=approval_token,
             )
 
+            trace_step.execution_id = tool_req.request_id
             tool_resp = await self.broker.execute(tool_req)
 
             # Handle approval required

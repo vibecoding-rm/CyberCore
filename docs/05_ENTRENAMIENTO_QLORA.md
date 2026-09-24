@@ -22,6 +22,34 @@ No entrenes antes de que el sistema funcione con prompts, herramientas y evaluac
 - Versiones actuales de productos.
 - Secretos, IP internas reales o datos personales.
 
+## Trazas del orquestador (paso 1 del pipeline)
+
+Cada `POST /v1/orchestrator/run` se graba en PostgreSQL (migración
+`0007_agent_traces`), en tablas de sólo inserción:
+
+- `agent_runs`: intención del operador, quién la lanzó, modelo, estado, informe
+  final y esquema de respuesta exigido al modelo.
+- `agent_steps`: por cada llamada al modelo, los **mensajes exactos** enviados,
+  la **salida cruda** (aunque no sea JSON válido), el error si lo hubo, la
+  observación devuelta y `execution_id`, que enlaza con la fila auditada de
+  `executions` cuando el paso llamó a una herramienta.
+- `agent_trace_reviews`: revisiones humanas; la más reciente manda.
+
+Revisión (rol `approver`; nadie revisa sus propias ejecuciones):
+
+```text
+GET  /v1/traces?limit=50          resumen con el último veredicto
+GET  /v1/traces/{run_id}          traza completa
+POST /v1/traces/{run_id}/reviews  {"verdict": "approved"|"rejected", "notes": "...",
+                                   "corrections": {"2": {<AgentThoughtAndAction>}}}
+```
+
+`corrections` sólo se admite al aprobar: sustituye la respuesta del modelo en
+ese paso por la que debió dar. Sólo las trazas cuyo último veredicto es
+`approved` pueden exportarse para entrenamiento. Si el almacén de trazas falla,
+la ejecución continúa (las herramientas ya quedan auditadas en `executions`) y
+se registra un aviso.
+
 ## Pipeline
 
 1. Exportar trazas aprobadas.

@@ -219,3 +219,92 @@ async def test_orchestrator_handles_out_of_scope_denial(broker):
     assert len(result.steps) == 2
     assert "denegada por política" in result.steps[0].observation
     assert "fuera del alcance" in result.final_report
+
+
+class RecordingTraceStore:
+    def __init__(self, fail: bool = False):
+        self.traces = []
+        self.fail = fail
+
+    async def save(self, trace):
+        if self.fail:
+            raise RuntimeError("almacén caído")
+        self.traces.append(trace)
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_records_exact_model_io_per_step(broker):
+    store = RecordingTraceStore()
+    mock_llm = MockLLMClient([
+        {"thought": "Descubro hosts.", "action_type": "call_tool",
+         "tool": "discover_hosts", "arguments": {"target": "192.168.10.0/24"}},
+        {"thought": "Listo.", "action_type": "final_answer", "final_summary": "Hecho."},
+    ])
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=mock_llm, model_name="mock-model", broker=broker, trace_recorder=store,
+    )
+
+    result = await orchestrator.run("Descubre hosts en 192.168.10.0/24", requested_by="ana")
+
+    [trace] = store.traces
+    assert trace.run_id == result.run_id
+    assert trace.requested_by == "ana"
+    assert trace.model == "mock-model"
+    assert [s.step_number for s in trace.steps] == [1, 2]
+    first, second = trace.steps
+    # The raw output is exactly what the model emitted, not the parsed step.
+    assert json.loads(first.raw_output)["tool"] == "discover_hosts"
+    assert first.messages[0]["role"] == "system"
+    assert first.execution_id is not None
+    assert first.observation == result.steps[0].observation
+    # Step 2 was prompted with step 1's observation.
+    assert any("Observación del Paso 1" in m["content"] for m in second.messages)
+    assert second.execution_id is None
+
+
+@pytest.mark.asyncio
+async def test_trace_keeps_invalid_model_output_and_error(broker):
+    class BrokenLLM:
+        async def chat_structured(self, model, messages, response_schema, **kwargs):
+            return ModelCompletion(content="{no es json", model=model)
+
+    store = RecordingTraceStore()
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=BrokenLLM(), model_name="m", broker=broker, trace_recorder=store,
+    )
+
+    result = await orchestrator.run("Inventario")
+
+    assert result.status == "error"
+    [step] = store.traces[0].steps
+    assert step.raw_output == "{no es json"
+    assert step.error
+
+
+@pytest.mark.asyncio
+async def test_trace_store_failure_does_not_hide_run_result(broker):
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=MockLLMClient([
+            {"thought": "Nada que ejecutar.", "action_type": "final_answer", "final_summary": "Ok."}
+        ]),
+        model_name="m",
+        broker=broker,
+        trace_recorder=RecordingTraceStore(fail=True),
+    )
+
+    result = await orchestrator.run("Pregunta")
+
+    assert result.status == "completed"
+
+
+def test_trace_review_rejects_corrections_on_rejected_trace():
+    from pydantic import ValidationError
+
+    from app.agent.traces import TraceReviewInput
+
+    correction = {"thought": "t", "action_type": "final_answer", "final_summary": "s"}
+    TraceReviewInput(verdict="approved", corrections={1: correction})
+    with pytest.raises(ValidationError):
+        TraceReviewInput(verdict="rejected", corrections={1: correction})
+    with pytest.raises(ValidationError):
+        TraceReviewInput(verdict="approved", corrections={0: correction})

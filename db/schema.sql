@@ -188,6 +188,43 @@ CREATE TABLE IF NOT EXISTS documents (
     UNIQUE (source_uri, content_sha256)
 );
 
+CREATE TABLE IF NOT EXISTS agent_runs (
+    id UUID PRIMARY KEY,
+    requested_by TEXT NOT NULL,
+    operator_intent TEXT NOT NULL,
+    model TEXT NOT NULL,
+    status TEXT NOT NULL,
+    final_report TEXT NOT NULL,
+    response_schema JSONB NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agent_steps (
+    run_id UUID NOT NULL REFERENCES agent_runs(id),
+    step_number INTEGER NOT NULL CHECK (step_number >= 1),
+    messages JSONB NOT NULL,
+    raw_output TEXT,
+    error TEXT,
+    observation TEXT,
+    execution_id UUID REFERENCES executions(id),
+    prompt_tokens INTEGER CHECK (prompt_tokens >= 0),
+    generated_tokens INTEGER CHECK (generated_tokens >= 0),
+    PRIMARY KEY (run_id, step_number)
+);
+
+CREATE TABLE IF NOT EXISTS agent_trace_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES agent_runs(id),
+    reviewer TEXT NOT NULL,
+    verdict TEXT NOT NULL CHECK (verdict IN ('approved', 'rejected')),
+    notes TEXT NOT NULL DEFAULT '',
+    corrections JSONB NOT NULL DEFAULT '{}'::jsonb,
+    reviewed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (verdict = 'approved' OR corrections = '{}'::jsonb)
+);
+
 CREATE INDEX IF NOT EXISTS idx_asset_addresses_address ON asset_addresses USING gist (address inet_ops);
 CREATE INDEX IF NOT EXISTS idx_vulnerabilities_identifier ON vulnerabilities (vulnerability_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_requested_by ON approvals (requested_by, created_at DESC);
@@ -205,3 +242,6 @@ CREATE INDEX IF NOT EXISTS idx_affected_ranges_product
     ON vulnerability_affected_ranges (match_kind, vendor, product);
 CREATE INDEX IF NOT EXISTS idx_intel_source_records_record
     ON intel_source_records (source, record_id, fetched_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_started_at ON agent_runs (started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_trace_reviews_run
+    ON agent_trace_reviews (run_id, reviewed_at DESC, id DESC);
