@@ -76,3 +76,7 @@ desktop.ini
 
 # Pesos GGUF locales (llama.cpp)
 models/
+
+# Datasets de entrenamiento (derivados de operaciones reales) y adaptadores
+data/training/
+adapters/

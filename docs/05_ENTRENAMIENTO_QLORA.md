@@ -50,6 +50,35 @@ ese paso por la que debió dar. Sólo las trazas cuyo último veredicto es
 la ejecución continúa (las herramientas ya quedan auditadas en `executions`) y
 se registra un aviso.
 
+## Exportación del dataset (pasos 2-5)
+
+```bash
+python -m scripts.export_training_dataset --name v1 --min-examples 200
+```
+
+Lee sólo trazas cuyo último veredicto es `approved` y escribe
+`data/training/v1/{train,validation,test}.jsonl` más `manifest.json` (ignorado
+por git; los datasets son inmutables: un nombre existente no se sobrescribe).
+Reglas (`app/training/dataset.py`):
+
+- **Objetivo** de cada paso: la corrección del revisor o, si no hay, la salida
+  cruda del modelo; debe validar como `AgentThoughtAndAction` y se serializa de
+  forma canónica. Salidas inválidas sin corrección se descartan.
+- Tras un paso corregido se descartan los siguientes: su historial se construyó
+  con la acción que el modelo tomó, no con la corregida.
+- **Sanitización**: IPs fuera de los rangos de laboratorio/documentación se
+  sustituyen de forma consistente dentro de la traza conservando si estaban en
+  alcance (`192.168.10.x`) o no (`203.0.113.x`), sin ensanchar redes (máx. /24);
+  también hostnames, correos y cadenas tipo credencial. El prompt del sistema se
+  conserva tal cual (su hash va en el manifiesto).
+- Duplicados exactos se funden; entradas idénticas con objetivos distintos son
+  ambiguas y se descartan todas.
+- **Familias** (intención normalizada) nunca cruzan splits (80/10/10 por hash)
+  y se excluyen intenciones que coinciden con prompts de CyberCAM-Bench.
+
+El manifiesto guarda hashes de cada fichero, del prompt del sistema, de la
+política y del benchmark, los `run_id` de origen y el recuento de descartes.
+
 ## Pipeline
 
 1. Exportar trazas aprobadas.
