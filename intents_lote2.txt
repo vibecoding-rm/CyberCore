@@ -1,0 +1,61 @@
+# Lote 2 de intenciones para recolección de trazas en CyberCore
+# Diseñado para cubrir variedad temática y balancear el dataset de entrenamiento QLoRA
+# Validadas para no solapar con los prompts de CyberCAM-Bench.
+
+# --- Bloque 1: Solo inventario simulado (sin acciones de red no pedidas) ---
+Consulta el registro de inventario de laboratorio asignado a la IP 192.168.10.42 y resume su configuración.
+¿Qué información de hardware y sistema operativo figura en el inventario simulado para 192.168.10.88?
+Revisa en el inventario local los datos registrados sobre la máquina 192.168.10.19.
+Muestra la ficha técnica del inventario simulado para el host 192.168.10.60 sin realizar acciones de red.
+¿Cuál es la versión de kernel reportada en el inventario seguro para el activo 192.168.10.77?
+Extrae los metadatos almacenados en el inventario simulado de 192.168.10.105.
+Verifica si existe registro de base de datos en el inventario simulado para 192.168.10.51.
+Comprueba los servicios anotados en el inventario local para el host 192.168.10.99.
+Consulta el inventario simulado de la dirección 192.168.10.150 y lista las aplicaciones declaradas.
+Revisa los registros estáticos del inventario de laboratorio para 192.168.10.111.
+
+# --- Bloque 2: Alcance y límites de política (fuera de alcance / negativas limpias) ---
+Analiza si el servidor público 8.8.8.8 tiene puertos abiertos.
+Escanea los servicios del host externo 203.0.113.55 en busca de vulnerabilidades.
+Realiza una inspección completa sobre la IP pública 198.51.100.22.
+Comprueba la seguridad del servidor en 1.1.1.1.
+Descubre equipos en la red externa 198.51.100.0/24.
+Realiza un sondeo defensivo sobre el rango 203.0.113.0/24.
+Inspecciona el estado de los puertos en 93.184.216.34.
+¿Tiene servicios vulnerables expuestos la IP 172.217.16.206?
+Audita la máquina en la red no autorizada 10.0.0.15.
+Comprueba si el equipo 172.16.1.50 pertenece a nuestro rango y escanea sus puertos.
+
+# --- Bloque 3: Descubrimiento de red en subredes autorizadas (192.168.10.0/24) ---
+Identifica qué máquinas del segmento de laboratorio 192.168.10.64/28 están encendidas.
+Queremos comprobar la disponibilidad de hosts en el bloque 192.168.10.192/27.
+Determina la conectividad de los equipos en la subred 192.168.10.32/27.
+Verifica qué dispositivos responden en el rango interno 192.168.10.16/28.
+Evalúa la presencia de hosts activos en el micro-segmento 192.168.10.96/28.
+Revisa si hay equipos levantados en el rango de pruebas 192.168.10.224/28.
+Comprueba la actividad de red en el bloque 192.168.10.48/28.
+Mapea los hosts operacionales en 192.168.10.80/28.
+
+# --- Bloque 4: Inspección de puertos y servicios específicos ---
+Inspecciona si el host 192.168.10.20 tiene abiertos los puertos web 80 y 443.
+Verifica qué servicio se ejecuta en el puerto 22 de la máquina 192.168.10.45.
+Comprueba si el puerto 3306 de base de datos está escuchando en 192.168.10.63.
+Analiza los puertos 8080 y 8443 en el servidor 192.168.10.72.
+Examina los puertos de administración 22 y 3389 en 192.168.10.14.
+Determina las versiones de servicio en los puertos 21, 22 y 80 del host 192.168.10.82.
+Inspecciona el puerto DNS 53 en el equipo 192.168.10.5.
+Revisa si el servidor 192.168.10.91 tiene activo el servicio SSH en el puerto 2222.
+Comprueba los puertos de correo 25, 587 y 993 en 192.168.10.102.
+Verifica el estado del puerto SNMP 161 en el nodo 192.168.10.115.
+
+# --- Bloque 5: Incertidumbre, versiones desconocidas y rigor técnico (evitar alarmismo) ---
+El inventario reporta un servicio HTTP sin versión en 192.168.10.33; evalúa si requiere actualización urgente.
+¿Es vulnerable el host 192.168.10.44 si sólo sabemos que tiene el puerto 80 abierto?
+Tenemos un servicio SSH con banner desconocido en 192.168.10.55; determina su nivel de riesgo.
+Determina si el host 192.168.10.66 está afectado por fallos en CISA KEV a partir de su puerto 443 abierto.
+¿Podemos confirmar que el software en 192.168.10.70 es seguro si no disponemos del número de versión?
+Evalúa si una versión no especificada de Apache en 192.168.10.85 amerita declarar una vulnerabilidad crítica.
+El operador afirma que 192.168.10.95 está comprometido; valida si hay evidencia técnica suficiente.
+¿Existe correlación comprobada en el catálogo KEV para un servicio genérico en 192.168.10.120?
+Un escaneo previo detectó el puerto 8080 sin versión en 192.168.10.130; concluye si es seguro o si falta evidencia.
+Indica si debemos aplicar parches inmediatos en 192.168.10.140 teniendo únicamente constancia de que el host responde a ping.
