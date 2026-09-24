@@ -129,3 +129,25 @@ async def test_factory_selects_provider():
     finally:
         await llama.aclose()
         await ollama.aclose()
+
+
+@pytest.mark.asyncio
+async def test_temperature_is_configurable_and_bounded():
+    observed = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.update(json.loads(request.content))
+        return httpx.Response(200, json=_completion('{"outcome":"deny"}'))
+
+    http_client = httpx.AsyncClient(
+        base_url="http://llama.test", transport=httpx.MockTransport(handler)
+    )
+    client = LlamaCppChatClient("http://llama.test", http_client=http_client, temperature=0.8)
+    try:
+        await client.chat_structured("m", [{"role": "user", "content": "x"}], {"type": "object"})
+    finally:
+        await http_client.aclose()
+
+    assert observed["temperature"] == 0.8
+    with pytest.raises(ValueError):
+        LlamaCppChatClient("http://llama.test", temperature=3)

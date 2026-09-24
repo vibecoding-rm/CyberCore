@@ -76,6 +76,7 @@ class LlamaCppChatClient:
         timeout_seconds: float = 120,
         api_key: str | None = None,
         http_client: httpx.AsyncClient | None = None,
+        temperature: float = 0.0,
     ):
         if timeout_seconds <= 0:
             raise ValueError("El timeout de llama.cpp debe ser positivo")
@@ -83,6 +84,10 @@ class LlamaCppChatClient:
         if parsed_url.scheme not in {"http", "https"} or not parsed_url.host:
             raise ValueError("LLAMACPP_BASE_URL debe ser una URL HTTP válida")
 
+        if not 0 <= temperature <= 2:
+            raise ValueError("La temperatura debe estar entre 0 y 2")
+        # 0 (greedy) in production; >0 only to sample varied answers (RFT).
+        self.temperature = temperature
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
@@ -125,7 +130,7 @@ class LlamaCppChatClient:
                 "model": model,
                 "messages": messages,
                 "stream": False,
-                "temperature": 0,
+                "temperature": self.temperature,
                 "max_tokens": num_predict,
                 "response_format": {
                     "type": "json_schema",
