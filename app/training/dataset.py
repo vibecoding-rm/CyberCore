@@ -14,7 +14,10 @@ Rules, in order:
     built from the action the model actually took, not from the correction.
   - Sanitization replaces non-lab IP addresses (keeping whether they were in
     scope), hostnames, e-mail addresses and credential-like strings. The
-    system prompt is ours and is kept verbatim.
+    system prompt is ours and is not sanitized; when `system_prompt` is given
+    it replaces the one recorded in the trace, so every example is trained
+    with the prompt the model will actually receive (targets are reviewed
+    answers, valid under the current rules).
   - Exact duplicates are merged; identical inputs with different targets are
     ambiguous and all dropped.
   - Families (normalized operator intent) never cross splits, and intents that
@@ -65,6 +68,7 @@ class DatasetStats:
     dropped: Counter = field(default_factory=Counter)
     per_split: Counter = field(default_factory=Counter)
     families_per_split: dict[str, int] = field(default_factory=dict)
+    system_prompt_replaced: int = 0
 
 
 class TraceSanitizer:
@@ -131,6 +135,7 @@ def build_dataset(
     reviewed: Iterable[tuple[AgentTrace, TraceReview]],
     in_scope: Callable[[str], bool],
     excluded_intents: Iterable[str] = (),
+    system_prompt: str | None = None,
 ) -> tuple[dict[str, list[dict[str, Any]]], DatasetStats]:
     stats = DatasetStats()
     excluded = {normalize_intent(intent) for intent in excluded_intents}
@@ -153,11 +158,15 @@ def build_dataset(
             except (ValidationError, ValueError):
                 stats.dropped["invalid_output"] += 1
                 continue
-            messages = [
-                message if message["role"] == "system"
-                else {**message, "content": sanitize(message["content"])}
-                for message in step.messages
-            ]
+            messages = []
+            for message in step.messages:
+                if message["role"] != "system":
+                    messages.append({**message, "content": sanitize(message["content"])})
+                elif system_prompt is not None and message["content"] != system_prompt:
+                    messages.append({**message, "content": system_prompt})
+                    stats.system_prompt_replaced += 1
+                else:
+                    messages.append(message)
             messages.append({"role": "assistant", "content": sanitize(target)})
             input_key = json.dumps(messages[:-1], ensure_ascii=False, sort_keys=True)
             candidates.append((family, input_key, {

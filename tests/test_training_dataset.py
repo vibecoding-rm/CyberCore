@@ -145,3 +145,18 @@ def test_families_never_cross_splits_and_benchmark_intents_are_excluded():
     assert normalize_intent(traces[0].operator_intent) == normalize_intent(traces[5].operator_intent)
     assert stats.dropped["benchmark_overlap"] == 1
     assert split_for_family("x") in {"train", "validation", "test"}
+
+
+def test_current_system_prompt_replaces_the_recorded_one():
+    t = trace("Pregunta conceptual", [action()])
+    t.steps[0].messages[0]["content"] = "prompt antiguo"
+
+    splits, stats = build_dataset([(t, approve(t))], in_scope, system_prompt="prompt actual")
+    [example] = all_examples(splits)
+
+    assert example["messages"][0] == {"role": "system", "content": "prompt actual"}
+    assert stats.system_prompt_replaced == 1
+    # Without an explicit prompt the recorded one is kept verbatim.
+    splits, stats = build_dataset([(t, approve(t))], in_scope)
+    assert all_examples(splits)[0]["messages"][0]["content"] == "prompt antiguo"
+    assert stats.system_prompt_replaced == 0

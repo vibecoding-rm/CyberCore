@@ -61,6 +61,7 @@ async def main() -> int:
         reviewed,
         in_scope=lambda target: policy._validate_scope(target) is None,
         excluded_intents=benchmark_prompts,
+        system_prompt=ORCHESTRATOR_SYSTEM_PROMPT,
     )
     if stats.kept < args.min_examples:
         print(
@@ -88,6 +89,7 @@ async def main() -> int:
         "system_prompt_sha256": hashlib.sha256(ORCHESTRATOR_SYSTEM_PROMPT.encode()).hexdigest(),
         "policy_sha256": sha256_file(Path(settings.policy_file)),
         "benchmark_sha256": sha256_file(BENCHMARK),
+        "system_prompt_replaced": stats.system_prompt_replaced,
         "approved_traces": stats.approved_traces,
         "steps_seen": stats.steps_seen,
         "dropped": dict(stats.dropped),
