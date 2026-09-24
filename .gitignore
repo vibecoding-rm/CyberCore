@@ -13,6 +13,8 @@
 *.keystore
 secrets/
 credentials/
+.*_keys.json
+.*_llama_key.txt
 
 # --- Python & Bytecode ---
 __pycache__/
