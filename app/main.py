@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status
 
@@ -191,6 +192,38 @@ app = FastAPI(
     description="Broker defensivo con alcance y evidencia.",
     lifespan=lifespan,
 )
+
+
+# --- Trace review page ---------------------------------------------------------
+# Static and public: it holds no data. It asks for an approver key and calls
+# the authenticated /v1/traces endpoints; the CSP forbids any inline or
+# third-party script, so trace content cannot run code in the page.
+WEB_DIR = Path(__file__).parent / "web"
+REVIEW_FILES = {
+    "": ("review.html", "text/html; charset=utf-8"),
+    "review.js": ("review.js", "text/javascript; charset=utf-8"),
+    "review.css": ("review.css", "text/css; charset=utf-8"),
+}
+REVIEW_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
+        "img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+}
+
+
+@app.get("/review", include_in_schema=False)
+@app.get("/review/{asset}", include_in_schema=False)
+async def review_page(asset: str = "") -> Response:
+    if asset not in REVIEW_FILES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    filename, media_type = REVIEW_FILES[asset]
+    return Response(
+        (WEB_DIR / filename).read_bytes(), media_type=media_type, headers=REVIEW_HEADERS
+    )
 
 
 @app.get("/health")
@@ -623,6 +656,17 @@ async def get_trace(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Traza no encontrada"
         ) from exc
+    except TraceStoreError as exc:
+        raise _trace_store_unavailable() from exc
+
+
+@app.get("/v1/traces/{run_id}/reviews/latest", response_model=TraceReview | None)
+async def get_latest_trace_review(
+    run_id: UUID,
+    principal: Principal = Depends(require_approver),
+) -> TraceReview | None:
+    try:
+        return await app.state.trace_repository.latest_review(run_id)
     except TraceStoreError as exc:
         raise _trace_store_unavailable() from exc
 

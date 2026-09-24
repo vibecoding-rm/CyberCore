@@ -94,6 +94,9 @@ async def test_run_is_recorded_and_reviewable_only_by_approver():
         )
         assert review.status_code == 201
         assert review.json()["reviewer"] == "trace-reviewer"
+        latest = await client.get(f"/v1/traces/{run_id}/reviews/latest", headers=bearer(APPROVER_KEY))
+        assert latest.json()["verdict"] == "approved"
+        assert latest.json()["notes"] == "Correcto"
 
         listed = await client.get("/v1/traces?limit=500", headers=bearer(APPROVER_KEY))
         summary = next(item for item in listed.json() if item["run_id"] == run_id)

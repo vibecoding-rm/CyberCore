@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Revisión de trazas · CyberCore</title>
+  <link rel="stylesheet" href="/review/review.css">
+  <script src="/review/review.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">CyberCore <span>· revisión de trazas</span></div>
+    <div class="session" id="session" hidden>
+      <span id="who"></span>
+      <button type="button" id="logout" class="ghost">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login" class="login card">
+      <h1>Revisar ejecuciones del orquestador</h1>
+      <p>Aprueba las respuestas correctas, corrige las mejorables y rechaza el resto.
+        Sólo las aprobadas se usan para entrenar el modelo.</p>
+      <form id="login-form">
+        <label for="api-key"><span>Clave de API de un revisor (rol <code>approver</code>)</span></label>
+        <input id="api-key" type="password" autocomplete="off" required minlength="16">
+        <button type="submit">Entrar</button>
+        <p class="hint">La clave sólo se guarda en esta pestaña y se borra al cerrarla.</p>
+        <p class="error" id="login-error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="workspace" class="workspace" hidden>
+      <aside class="list-pane">
+        <div class="filters" role="tablist" aria-label="Filtrar trazas">
+          <button type="button" data-filter="pending" class="active">Pendientes</button>
+          <button type="button" data-filter="approved">Aprobadas</button>
+          <button type="button" data-filter="rejected">Rechazadas</button>
+          <button type="button" data-filter="all">Todas</button>
+        </div>
+        <p class="counts" id="counts"></p>
+        <ul id="trace-list" class="trace-list"></ul>
+        <button type="button" id="refresh" class="ghost wide">Actualizar</button>
+      </aside>
+
+      <section class="detail-pane" id="detail">
+        <p class="empty">Selecciona una ejecución de la lista.</p>
+      </section>
+    </section>
+  </main>
+
+  <template id="step-template">
+    <article class="step card">
+      <header class="step-head">
+        <h3></h3>
+        <span class="badge"></span>
+      </header>
+      <div class="step-body">
+        <h4>Respuesta del modelo</h4>
+        <pre class="output"></pre>
+        <p class="error step-error"></p>
+        <h4>Resultado de la acción</h4>
+        <pre class="observation"></pre>
+        <details class="messages">
+          <summary>Mensajes enviados al modelo</summary>
+          <div class="message-list"></div>
+        </details>
+      </div>
+      <div class="correction" hidden>
+        <h4>Respuesta corregida</h4>
+        <label>Razonamiento (thought)<textarea name="thought" rows="2" required></textarea></label>
+        <label>Acción
+          <select name="action_type">
+            <option value="call_tool">Llamar a una herramienta</option>
+            <option value="final_answer">Respuesta final</option>
+          </select>
+        </label>
+        <label class="tool-field">Herramienta
+          <select name="tool">
+            <option value="discover_hosts">discover_hosts</option>
+            <option value="inspect_services">inspect_services</option>
+            <option value="get_mock_inventory">get_mock_inventory</option>
+          </select>
+        </label>
+        <label class="tool-field">Argumentos (JSON)<textarea name="arguments" rows="2" spellcheck="false"></textarea></label>
+        <label class="final-field">Resumen final<textarea name="final_summary" rows="4"></textarea></label>
+        <p class="error correction-error"></p>
+      </div>
+      <footer class="step-actions">
+        <button type="button" class="ghost toggle-correction">Corregir este paso</button>
+      </footer>
+    </article>
+  </template>
+</body>
+</html>

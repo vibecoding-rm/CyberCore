@@ -44,6 +44,14 @@ POST /v1/traces/{run_id}/reviews  {"verdict": "approved"|"rejected", "notes": ".
                                    "corrections": {"2": {<AgentThoughtAndAction>}}}
 ```
 
+**Página de revisión**: `http://localhost:8080/review`. Pide la clave de un
+revisor (`approver`), lista las ejecuciones (pendientes, aprobadas,
+rechazadas), muestra cada paso (respuesta del modelo, resultado de la acción y
+mensajes enviados) y permite aprobar, rechazar o corregir pasos con un
+formulario. Es estática: no contiene datos y usa la API anterior; la clave sólo
+vive en `sessionStorage`, el contenido de las trazas se inserta siempre como
+texto y la CSP prohíbe scripts en línea o de terceros.
+
 `corrections` sólo se admite al aprobar: sustituye la respuesta del modelo en
 ese paso por la que debió dar. Sólo las trazas cuyo último veredicto es
 `approved` pueden exportarse para entrenamiento. Si el almacén de trazas falla,
