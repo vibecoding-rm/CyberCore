@@ -71,11 +71,12 @@ def test_sanitizer_keeps_lab_and_scope_class_but_hides_real_addresses():
     for leaked in ("8.8.8.8", "10.20.30.40", "172.16.0.0", "srv-nominas", "empresa.es",
                    "abc123secret", "eyJhbGciOi"):
         assert leaked not in clean
-    # Same address -> same pseudonym; out-of-scope stays out of scope; never widened.
-    assert clean.count("203.0.113.10") == 2
-    assert "203.0.113.11" in clean
-    assert "203.0.113.0/24" in clean
-    assert not in_scope("203.0.113.10")
+    # Same address -> same pseudonym; out-of-scope stays out of scope, private
+    # stays private and public stays public; networks are never widened.
+    assert clean.count("203.0.113.10") == 2       # 8.8.8.8 (public)
+    assert "10.255.0.10" in clean                 # 10.20.30.40 (private)
+    assert "10.255.0.0/24" in clean               # 172.16.0.0/12 (private network)
+    assert not in_scope("203.0.113.10") and not in_scope("10.255.0.10")
     assert "Hostname: host-01" in clean and "Hostname: desconocido" in clean
 
 
@@ -94,7 +95,7 @@ def test_target_is_canonical_json_and_invalid_uncorrected_outputs_are_dropped():
     [example] = all_examples(splits)
     target = json.loads(example["messages"][-1]["content"])
     assert target["action_type"] == "final_answer"
-    assert target["final_summary"] == "Visto 203.0.113.10"
+    assert target["final_summary"] == "Visto 10.255.0.10"
     assert "10.1.1.1" not in json.dumps(example)
     assert example["messages"][0]["content"] == ORCHESTRATOR_SYSTEM_PROMPT
     assert stats.dropped["invalid_output"] == 2

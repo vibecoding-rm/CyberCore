@@ -37,7 +37,9 @@ from pydantic import ValidationError
 from app.agent.models import AgentThoughtAndAction
 from app.agent.traces import AgentTrace, TraceReview
 
-SANITIZER_VERSION = 1
+# v2: out-of-scope private addresses keep looking private (10.255.0.x);
+# v1 mapped them to 203.0.113.x, which reads as a public address.
+SANITIZER_VERSION = 2
 SPLITS = ("train", "validation", "test")
 
 # Lab and documentation ranges carry no information about a real network.
@@ -49,7 +51,11 @@ LAB_NETWORKS = [
     IPv4Network("203.0.113.0/24"),
 ]
 IN_SCOPE_PLACEHOLDER = IPv4Network("192.168.10.0/24")
-OUT_OF_SCOPE_PLACEHOLDER = IPv4Network("203.0.113.0/24")
+# Out of scope: keep private addresses private and public ones public, since
+# the orchestrator must treat "public Internet" differently from "internal but
+# not authorized".
+OUT_OF_SCOPE_PRIVATE_PLACEHOLDER = IPv4Network("10.255.0.0/24")
+OUT_OF_SCOPE_PUBLIC_PLACEHOLDER = IPv4Network("203.0.113.0/24")
 
 # A trailing sentence period is fine; a dot followed by a digit is not.
 _IPV4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(/\d{1,2})?(?!\d|\.\d)")
@@ -78,7 +84,7 @@ class TraceSanitizer:
         self.in_scope = in_scope
         self.addresses: dict[str, str] = {}
         self.hostnames: dict[str, str] = {}
-        self._next = {True: 10, False: 10}
+        self._next: dict[IPv4Network, int] = {}
 
     def __call__(self, text: str) -> str:
         text = _SECRET.sub(lambda m: m.group(1) + "[REDACTADO]", text)
@@ -99,14 +105,18 @@ class TraceSanitizer:
         if not isinstance(base, IPv4Address) or any(base in net for net in LAB_NETWORKS):
             return raw
         if raw not in self.addresses:
-            allowed = self.in_scope(raw)
-            placeholder = IN_SCOPE_PLACEHOLDER if allowed else OUT_OF_SCOPE_PLACEHOLDER
+            if self.in_scope(raw):
+                placeholder = IN_SCOPE_PLACEHOLDER
+            elif base.is_private:
+                placeholder = OUT_OF_SCOPE_PRIVATE_PLACEHOLDER
+            else:
+                placeholder = OUT_OF_SCOPE_PUBLIC_PLACEHOLDER
             if isinstance(parsed, IPv4Network):
                 # Never widen: a pseudonymized network is at most a /24.
                 self.addresses[raw] = f"{placeholder.network_address}/{max(parsed.prefixlen, 24)}"
             else:
-                host = self._next[allowed]
-                self._next[allowed] += 1
+                host = self._next.get(placeholder, 10)
+                self._next[placeholder] = host + 1
                 if host > 254:
                     raise ValueError("Demasiadas direcciones distintas en una traza")
                 self.addresses[raw] = str(placeholder.network_address + host)

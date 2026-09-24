@@ -96,7 +96,8 @@ Reglas (`app/training/dataset.py`):
   con la acción que el modelo tomó, no con la corregida.
 - **Sanitización**: IPs fuera de los rangos de laboratorio/documentación se
   sustituyen de forma consistente dentro de la traza conservando si estaban en
-  alcance (`192.168.10.x`) o no (`203.0.113.x`), sin ensanchar redes (máx. /24);
+  alcance (`192.168.10.x`) o no, y si eran privadas (`10.255.0.x`) o públicas
+  (`203.0.113.x`), sin ensanchar redes (máx. /24);
   también hostnames, correos y cadenas tipo credencial. El prompt del sistema se
   conserva tal cual (su hash va en el manifiesto).
 - Duplicados exactos se funden; entradas idénticas con objetivos distintos son
