@@ -58,6 +58,26 @@ ese paso por la que debió dar. Sólo las trazas cuyo último veredicto es
 la ejecución continúa (las herramientas ya quedan auditadas en `executions`) y
 se registra un aviso.
 
+## Recogida rápida de trazas (opcional, GPU remota)
+
+En CPU cada ejecución del orquestador tarda ~2 minutos. Para recoger lotes se
+puede servir el mismo GGUF (verificado por SHA-256) en una L4 de Modal y
+apuntar temporalmente la API a él; CyberCore (política, broker, herramientas
+simuladas y almacén de trazas) sigue en local:
+
+```bash
+PYTHONUTF8=1 python -m modal run training/modal_llm.py       # descarga y verifica
+PYTHONUTF8=1 python -m modal deploy training/modal_llm.py    # endpoint con clave
+LLAMACPP_DOCKER_URL=https://<workspace>--cybercore-llm-serve.modal.run LLAMACPP_API_KEY=<clave> docker compose up -d api
+CYBERCORE_API_KEY=<clave operator> python -m scripts.run_orchestrator_batch intents.txt     --base-url http://127.0.0.1:8088 --concurrency 4
+PYTHONUTF8=1 python -m modal app stop cybercore-llm --yes    # apagar al terminar
+docker compose up -d api                                     # volver al modelo local
+```
+
+Primer lote (2026-09-24): 83 intenciones en ~4 minutos (9-20 s por ejecución
+frente a ~140 s en CPU). Si el lote supera `max_requests_per_hour`, súbelo sólo
+durante el lote y restáuralo después.
+
 ## Exportación del dataset (pasos 2-5)
 
 ```bash
