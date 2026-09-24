@@ -75,7 +75,8 @@ async def test_record_discovery_evidence_upserts_assets():
             "target": "192.168.10.0/24",
             "total_hosts_up": 1,
             "hosts": [
-                {"ip": test_ip, "hostname": "discovered-node-01", "status": "up"}
+                # Same shape NmapDiscoverHostsTool emits.
+                {"address": test_ip, "hostname": "discovered-node-01", "status": "up"}
             ],
         },
         sha256="1" * 64,

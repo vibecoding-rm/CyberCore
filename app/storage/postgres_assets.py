@@ -158,7 +158,8 @@ class PostgresAssetRepository:
             hosts = evidence.data.get("hosts", [])
             for host in hosts:
                 if host.get("status") == "up":
-                    ip = host.get("ip")
+                    # Nmap adapters emit "address"; "ip" kept for older evidence.
+                    ip = host.get("address") or host.get("ip")
                     if not ip:
                         continue
                     hostname = host.get("hostname")

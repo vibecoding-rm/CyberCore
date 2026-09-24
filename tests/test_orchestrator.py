@@ -308,3 +308,22 @@ def test_trace_review_rejects_corrections_on_rejected_trace():
         TraceReviewInput(verdict="rejected", corrections={1: correction})
     with pytest.raises(ValidationError):
         TraceReviewInput(verdict="approved", corrections={0: correction})
+
+
+@pytest.mark.asyncio
+async def test_discovery_observation_shows_addresses_from_nmap_output(broker):
+    orchestrator = CyberCoreOrchestrator(
+        llm_client=MockLLMClient([
+            {"thought": "d", "action_type": "call_tool", "tool": "discover_hosts",
+             "arguments": {"target": "192.168.10.0/24"}},
+        ]),
+        model_name="m",
+        broker=broker,
+        max_steps=1,
+    )
+
+    result = await orchestrator.run("Descubre hosts")
+
+    observation = result.steps[0].observation
+    assert "IP: 192.168.10.25" in observation
+    assert "None" not in observation

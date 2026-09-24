@@ -271,7 +271,9 @@ class CyberCoreOrchestrator:
                 hosts = evidence.data.get("hosts", [])
                 obs += f"Hosts activos descubiertos: {len(hosts)}\n"
                 for h in hosts:
-                    obs += f" - IP: {h.get('ip')} | Hostname: {h.get('hostname') or 'desconocido'}\n"
+                    # Nmap adapters emit "address"; "ip" kept for older evidence.
+                    ip = h.get("address") or h.get("ip")
+                    obs += f" - IP: {ip} | Hostname: {h.get('hostname') or 'desconocido'}\n"
                     discovered_assets.append(h)
 
             elif tool_name in ("inspect_services", "get_mock_inventory") and evidence:
