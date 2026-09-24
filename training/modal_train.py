@@ -200,8 +200,105 @@ def train(
     return summary
 
 
+def first_json_object(text: str) -> dict | None:
+    """The base model is not grammar-constrained here; take its first JSON object."""
+    start = text.find("{")
+    while start != -1:
+        try:
+            value, _ = json.JSONDecoder().raw_decode(text[start:])
+            return value if isinstance(value, dict) else None
+        except json.JSONDecodeError:
+            start = text.find("{", start + 1)
+    return None
+
+
+def compare_action(predicted: dict | None, expected: dict) -> dict[str, bool]:
+    """Structural agreement with the reviewed answer (free text is not graded)."""
+    if predicted is None or predicted.get("action_type") not in ("call_tool", "final_answer"):
+        return {"valid": False, "action_type": False, "tool": False, "target": False}
+    checks = {"valid": True, "action_type": predicted["action_type"] == expected["action_type"]}
+    if expected["action_type"] == "call_tool":
+        args = predicted.get("arguments") or {}
+        checks["tool"] = checks["action_type"] and predicted.get("tool") == expected["tool"]
+        checks["target"] = checks["tool"] and args.get("target") == expected["arguments"].get("target")
+    else:
+        checks["tool"] = checks["target"] = checks["action_type"]
+    return checks
+
+
+@app.function(gpu=GPU, volumes=VOLUMES, timeout=2 * HOURS)
+def evaluate(dataset: str, adapter: str, split: str = "test", max_new_tokens: int = 768) -> dict:
+    """Base model vs base+adapter on a held-out split, same prompt rendering."""
+    from unsloth import FastLanguageModel
+
+    import torch
+
+    data_dir = Path(str(DATA_DIR))
+    dataset_dir = data_dir / "datasets" / dataset
+    verify_manifest(dataset_dir)
+    examples = read_jsonl(dataset_dir / f"{split}.jsonl")
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=str(data_dir / "adapters" / adapter),
+        max_seq_length=4096,
+        load_in_4bit=False,
+        load_in_16bit=True,
+    )
+    FastLanguageModel.for_inference(model)
+
+    def generate(messages: list[dict]) -> str:
+        prompt = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
+        inputs = tokenizer(text=prompt, return_tensors="pt").to("cuda")
+        with torch.no_grad():
+            output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+        return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+
+    rows = []
+    for example in examples:
+        messages = example["messages"]
+        expected = json.loads(messages[-1]["content"])
+        with model.disable_adapter():
+            base_text = generate(messages[:-1])
+        adapter_text = generate(messages[:-1])
+        rows.append({
+            "meta": example["meta"],
+            "expected": expected,
+            "base": {"text": base_text, "checks": compare_action(first_json_object(base_text), expected)},
+            "adapter": {"text": adapter_text, "checks": compare_action(first_json_object(adapter_text), expected)},
+        })
+
+    def rate(model_name: str, check: str) -> float:
+        return sum(row[model_name]["checks"][check] for row in rows) / len(rows)
+
+    report = {
+        "dataset": dataset,
+        "adapter": adapter,
+        "split": split,
+        "examples": len(rows),
+        "summary": {
+            name: {check: rate(name, check) for check in ("valid", "action_type", "tool", "target")}
+            for name in ("base", "adapter")
+        },
+        "rows": rows,
+    }
+    out = data_dir / "adapters" / adapter / f"eval_{dataset}_{split}.json"
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    data_volume.commit()
+    return report
+
+
 @app.local_entrypoint()
-def main(action: str = "smoke", dataset: str = "", adapter: str = ""):
+def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str = "test"):
+    if action == "evaluate":
+        if not dataset or not adapter:
+            raise SystemExit("Uso: --action evaluate --dataset <nombre> --adapter <nombre> [--split test]")
+        report = evaluate.remote(dataset, adapter, split)
+        target = LOCAL_ADAPTERS / adapter / f"eval_{dataset}_{split}.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({k: report[k] for k in ("dataset", "adapter", "split", "examples", "summary")}, indent=2))
+        return
     if action == "smoke":
         name = f"smoke-{datetime.now(timezone.utc):%Y%m%d%H%M%S}"
         summary = train.remote(None, name, max_steps=2, max_length=1024)
