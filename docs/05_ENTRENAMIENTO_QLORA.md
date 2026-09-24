@@ -79,26 +79,37 @@ Reglas (`app/training/dataset.py`):
 El manifiesto guarda hashes de cada fichero, del prompt del sistema, de la
 política y del benchmark, los `run_id` de origen y el recuento de descartes.
 
-## Entrenamiento (paso 6, GPU temporal)
+## Entrenamiento (paso 6, Modal)
 
-Este equipo no tiene GPU CUDA: el entrenamiento se hace en una máquina GPU
-temporal (Colab, Kaggle, instancia alquilada) a la que sólo se copia el
-directorio del dataset. Modelo base: `Qwen/Qwen3.5-9B` (Apache-2.0; el GGUF de
-producción es su cuantización Q4_K_M). Es multimodal e híbrido (atención lineal
-+ completa): LoRA se aplica sólo a las proyecciones del modelo de lenguaje; el
-codificador de visión y la cabeza MTP quedan congelados.
+Este equipo no tiene GPU CUDA; el entrenamiento se lanza en
+[Modal](https://modal.com) (30 $/mes de crédito incluido; exige tarjeta para
+usar GPU). Modelo base: `Qwen/Qwen3.5-9B` (Apache-2.0; el GGUF de producción es
+su cuantización Q4_K_M).
+
+**LoRA de 16 bits, no QLoRA**: la guía de Unsloth para Qwen3.5 desaconseja
+entrenar en 4 bits por las diferencias de cuantización. El 9B necesita ~22 GB,
+así que se usa una L40S (48 GB); `CYBERCORE_MODAL_GPU=L4` es la alternativa
+ajustada. Requiere `transformers` v5 (lo instala la imagen).
 
 ```bash
-pip install -r training/requirements.txt
-python training/train_qlora.py --dataset data/training/v1 --dry-run
-python training/train_qlora.py --dataset data/training/v1 --output adapters/v1
+pip install modal && python -m modal setup          # una vez
+PYTHONUTF8=1 python -m modal run training/modal_train.py --action smoke
+PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --dataset v1 --adapter v1
 ```
 
-El script verifica los hashes del manifiesto antes de entrenar, calcula la
-pérdida sólo sobre la respuesta del asistente y guarda
-`adapters/v1/training_manifest.json` (modelo base, dataset, hiperparámetros,
-historial de pérdidas, `status: pending_evaluation`). Ni `data/training/` ni
-`adapters/` se versionan.
+- `smoke` entrena 2 pasos con un ejemplo de juguete: valida imagen, GPU,
+  plantilla y guardado antes de gastar crédito (verificado el 2026-09-24:
+  menos de 1 $, pesos cacheados en el volumen `cybercore-hf-cache`).
+- `train` verifica el manifiesto en local, sube el dataset al volumen
+  `cybercore-training`, lo vuelve a verificar en el contenedor, entrena y
+  descarga el adaptador a `adapters/<nombre>/` con `training_manifest.json`
+  (`status: pending_evaluation`).
+- Los prompts se renderizan con la misma plantilla de chat que sirve
+  llama.cpp en producción (`enable_thinking=False`) y la pérdida se calcula sólo
+  sobre la respuesta JSON.
+- En Windows hace falta `PYTHONUTF8=1` (la consola no admite los caracteres
+  que imprime Modal) y, en Git Bash, `MSYS_NO_PATHCONV=1` para rutas de volumen
+  como `/adapters`.
 
 ## Evaluación y aceptación (pasos 7-9)
 

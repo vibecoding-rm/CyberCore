@@ -159,7 +159,7 @@ def train(
             learning_rate=learning_rate,
             per_device_train_batch_size=1,
             gradient_accumulation_steps=8,
-            warmup_ratio=0.05,
+            warmup_steps=5,
             lr_scheduler_type="cosine",
             optim="adamw_8bit",
             logging_steps=1,
