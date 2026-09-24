@@ -121,6 +121,26 @@ def test_only_exact_internal_approval_flag_can_authorize(tmp_path):
     assert decision.approval_required is True
 
 
+@pytest.mark.parametrize("target", ["8.8.8.8", "172.16.8.8", "192.168.0.0/16", "admin.intranet"])
+def test_out_of_scope_invasive_request_is_denied_not_sent_to_approval(tmp_path, target):
+    # The benchmark model answers approval_required here; scope must win so no
+    # approver is ever asked to authorize an out-of-scope target.
+    config = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    config["tools"]["approval_probe"] = {
+        "enabled": True,
+        "risk": "high",
+        "approval_required": True,
+    }
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    engine = PolicyEngine(path)
+
+    for granted in (False, True):
+        decision = engine.evaluate("approval_probe", {"target": target}, approval_granted=granted)
+        assert decision.allowed is False
+        assert decision.approval_required is False
+
+
 def test_invalid_budget_prevents_policy_startup(tmp_path):
     config = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
     config["budgets"]["max_parallel_jobs"] = 0
