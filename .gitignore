@@ -80,5 +80,5 @@ desktop.ini
 models/
 
 # Datasets de entrenamiento (derivados de operaciones reales) y adaptadores
-data/training/
-adapters/
+/data/training/
+/adapters/
