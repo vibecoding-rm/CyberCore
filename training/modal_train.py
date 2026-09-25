@@ -59,6 +59,8 @@ image = (
     # Qwen3.5 needs transformers v5 (Unsloth guide); applied last so it wins.
     .uv_pip_install("transformers>=5.0", "trl>=1.0", "datasets>=3.0")
     .env({"HF_HUB_CACHE": str(HF_CACHE), "HF_XET_HIGH_PERFORMANCE": "1"})
+    # The dataset quality gate lives in app/; Modal only ships this file by default.
+    .add_local_python_source("app")
 )
 app = modal.App("cybercore-qlora", image=image)
 data_volume = modal.Volume.from_name("cybercore-training", create_if_missing=True)
