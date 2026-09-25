@@ -82,8 +82,8 @@ Una puntuación 0 en **fidelidad** cuenta como fallo aunque el total sea alto.
 - Si dos revisores difieren en más de 1 punto en un criterio, un tercero
   resuelve. Se publica el acuerdo entre revisores (porcentaje de coincidencias
   exactas y a ±1 punto por criterio).
-- La interfaz reutiliza la página `/review` con la rúbrica en lugar de
-  aprobar o rechazar.
+- La página es `/analyst-review` (misma autenticación que `/review`): muestra
+  el expediente y las respuestas anónimas con la rúbrica.
 
 ## Casos
 
@@ -98,9 +98,10 @@ Una puntuación 0 en **fidelidad** cuenta como fallo aunque el total sea alto.
   vez en desarrollo y en holdout.
 - **Tamaño inicial:** 40 casos de desarrollo y 60 de holdout sellado. Es una
   hipótesis: con el piloto se mide la varianza entre revisores y se recalcula.
-- **Sellado:** el holdout se versiona con su SHA-256 y se registra cada uso,
-  como [`HOLDOUT_LOG.md`](../reports/benchmarks/HOLDOUT_LOG.md). Ningún caso
-  del bench se usa para entrenar.
+- **Sellado:** el holdout se versiona con su SHA-256
+  (`config/analyst_bench/manifest.json`) y el ejecutor exige `--reason` y anota
+  cada uso en `reports/analyst/HOLDOUT_LOG.md` antes de producir respuestas.
+  Ningún caso del bench se usa para entrenar.
 
 ## Criterio de adopción
 
@@ -123,7 +124,8 @@ no se entrena el adaptador `analyst`.
 python -m scripts.generate_analyst_cases
 
 # 2. Respuestas de C0 y de un LLM (en GPU: el 9B tarda ~5 min por caso en CPU)
-python -m scripts.run_analyst_bench --split development --run-id <id>     --llm C1=qwen3.5:9b --base-url <endpoint> --concurrency 4
+python -m scripts.run_analyst_bench --split development --run-id <id> \
+    --llm C1=qwen3.5:9b --base-url <endpoint> --concurrency 4
 
 # 3. Publicar para revisión a ciegas en /analyst-review (rol approver)
 python -m scripts.publish_analyst_run reports/analyst/runs/<id>.json
