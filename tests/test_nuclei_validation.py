@@ -31,6 +31,7 @@ def nuclei_evidence(
     source: str = "run_nuclei_safe",
     findings: bool = True,
     evidence_id: str = "EVD-00000000000A",
+    matched_at: str | None = None,
 ) -> Evidence:
     data: dict[str, Any] = {
         "target": target,
@@ -40,7 +41,7 @@ def nuclei_evidence(
             {
                 "template_id": CVE,
                 "cve_ids": cve_ids if cve_ids is not None else [CVE],
-                "matched_at": f"http://{target}:22",
+                "matched_at": matched_at or f"http://{target}:22",
             }
         ]
         if findings
@@ -113,6 +114,26 @@ def test_non_qualifying_evidence_never_validates(evidence, fragment):
     result = assess_nuclei_validation([evidence], TARGET, CVE)
     assert result.status == "not_applicable"
     assert any(fragment in obs for obs in result.observations)
+
+
+@pytest.mark.parametrize("matched_at", ["http://192.168.10.250:22/", "192.168.10.250:22"])
+def test_active_hit_on_another_host_does_not_validate(matched_at):
+    result = assess_nuclei_validation([nuclei_evidence(matched_at=matched_at)], TARGET, CVE)
+    assert result.status == "not_applicable"
+    assert any("no valida este activo" in obs for obs in result.observations)
+
+
+def test_active_hit_without_matched_at_does_not_validate():
+    evidence = nuclei_evidence()
+    data = {**evidence.data, "findings": [{"template_id": CVE, "cve_ids": [CVE]}]}
+    unattributed = evidence.model_copy(update={"data": data, "sha256": evidence_sha256(data)})
+    assert assess_nuclei_validation([unattributed], TARGET, CVE).status == "not_applicable"
+
+
+@pytest.mark.parametrize("matched_at", ["192.168.10.25:22", "https://192.168.10.25/x", "192.168.10.25"])
+def test_active_hit_on_the_target_validates_in_any_matched_at_format(matched_at):
+    result = assess_nuclei_validation([nuclei_evidence(matched_at=matched_at)], TARGET, CVE)
+    assert result.status == "validated"
 
 
 def test_finding_for_another_cve_does_not_validate():

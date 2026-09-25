@@ -1,4 +1,6 @@
+import ipaddress
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +18,22 @@ class ValidationResult(BaseModel):
     observations: list[str] = Field(default_factory=list)
 
 
+def _matched_host(matched_at: Any) -> str | None:
+    """Host of a Nuclei matched_at value ("http://h:80/x", "h:22" or "h")."""
+    if not isinstance(matched_at, str) or not matched_at:
+        return None
+    try:
+        host = urlsplit(matched_at if "://" in matched_at else f"//{matched_at}").hostname
+    except ValueError:
+        return None
+    if host is None:
+        return None
+    try:
+        return str(ipaddress.ip_address(host))
+    except ValueError:
+        return host.lower()
+
+
 def assess_nuclei_validation(
     evidence_items: list[Evidence],
     target: str,
@@ -25,7 +43,9 @@ def assess_nuclei_validation(
 
     Only a real (non-simulated) run against the same target, whose finding is
     classified with this CVE and comes from an allowlisted *active* template,
-    counts as validation. A passive detection is another fingerprint, not proof.
+    counts as validation, and only when the finding itself was matched on that
+    target (a redirect can make Nuclei report a hit on another host). A passive
+    detection is another fingerprint, not proof.
     A silent active run is recorded as "not reproduced", never as a false
     positive: templates can miss vulnerable configurations.
     """
@@ -70,7 +90,15 @@ def assess_nuclei_validation(
             for f in data.get("findings") or []
             if isinstance(f, dict) and vulnerability_id in (f.get("cve_ids") or [])
         ]
-        active_hits = [f for f in relevant if modes.get(f.get("template_id")) == "active"]
+        active = [f for f in relevant if modes.get(f.get("template_id")) == "active"]
+        active_hits = [f for f in active if _matched_host(f.get("matched_at")) == target]
+        elsewhere = [f for f in active if f not in active_hits]
+        if elsewhere and not active_hits:
+            observations.append(
+                f"{label}: la plantilla activa reprodujo {vulnerability_id} en "
+                f"{elsewhere[0].get('matched_at')}, no en {target}; no valida este activo."
+            )
+            continue
         if active_hits:
             hit = active_hits[0]
             template_id = hit.get("template_id")
