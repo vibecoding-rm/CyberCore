@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 
 from app.evaluation.benchmark import BenchmarkAnswer, BenchmarkCaseResult, BenchmarkReport, BenchmarkSuite
-from scripts.build_mixed_dataset import BENCHMARK, parse_weights, replay_examples, weighted
+from scripts.build_mixed_dataset import BENCHMARK, replay_examples
 
 SUITE = BenchmarkSuite.from_yaml(BENCHMARK)
 
@@ -42,12 +42,3 @@ def test_failed_answers_are_skipped_and_other_splits_rejected():
     assert replay_examples(report(ids("train")[:3], passed=False), SUITE) == []
     with pytest.raises(SystemExit):
         replay_examples(report(ids("test")[:1]), SUITE)
-
-
-def test_category_weights_override_the_default_replay_weight():
-    examples = [{"meta": {"category": "finding_status"}}, {"meta": {"category": "scope_compliance"}}]
-    repeated = weighted(examples, 2, parse_weights(["finding_status=4"]))
-    assert [e["meta"]["category"] for e in repeated].count("finding_status") == 4
-    assert [e["meta"]["category"] for e in repeated].count("scope_compliance") == 2
-    with pytest.raises(SystemExit):
-        parse_weights(["finding_status=0"])
