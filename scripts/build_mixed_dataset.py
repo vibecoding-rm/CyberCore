@@ -1,7 +1,7 @@
 """Mix an orchestrator dataset with replay examples from CyberCAM-Bench.
 
     python -m scripts.build_mixed_dataset --orchestrator v4 \
-        --replay-report reports/benchmarks/<base-model train report>.json --name v5
+        --replay-report reports/benchmarks/<base-model train report>.json --name v5         [--replay-weight 2 --category-weight finding_status=4]
 
 Adapter v4, trained only on orchestration, forgot analyst skills and was
 rejected by the CyberCAM-Bench gate. Replay examples keep them: the base
@@ -69,6 +69,25 @@ def replay_examples(report: BenchmarkReport, suite: BenchmarkSuite) -> list[dict
     return examples
 
 
+def parse_weights(values: list[str]) -> dict[str, int]:
+    weights = {}
+    for value in values:
+        category, _, count = value.partition("=")
+        if not category or not count.isdigit() or int(count) < 1:
+            raise SystemExit(f"Peso inválido {value!r}; formato categoria=N con N >= 1")
+        weights[category] = int(count)
+    return weights
+
+
+def weighted(examples: list[dict[str, Any]], default: int, weights: dict[str, int]) -> list[dict[str, Any]]:
+    """Repeat each replay example by its category weight (train split only)."""
+    return [
+        example
+        for example in examples
+        for _ in range(weights.get(example["meta"]["category"], default))
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--orchestrator", required=True, help="Dataset de orquestación ya exportado")
@@ -76,6 +95,10 @@ def main() -> int:
     parser.add_argument("--name", required=True)
     parser.add_argument("--validation-every", type=int, default=10,
                         help="1 de cada N ejemplos de repaso va a validation")
+    parser.add_argument("--replay-weight", type=int, default=1,
+                        help="Repeticiones de cada ejemplo de repaso en train")
+    parser.add_argument("--category-weight", action="append", default=[], metavar="CATEGORIA=N",
+                        help="Repeticiones en train para una categoría (sustituye a --replay-weight)")
     args = parser.parse_args()
 
     source = OUTPUT_ROOT / args.orchestrator
@@ -92,11 +115,18 @@ def main() -> int:
     if report.split != "train":
         raise SystemExit(f"El informe es del split {report.split!r}; sólo se admite 'train'")
     replay = replay_examples(report, BenchmarkSuite.from_yaml(BENCHMARK))
+    if args.replay_weight < 1:
+        raise SystemExit("--replay-weight debe ser >= 1")
+    weights = parse_weights(args.category_weight)
 
     splits = {name: read_jsonl(source / f"{name}.jsonl") for name in ("train", "validation", "test")}
+    replay_train = []
     for i, example in enumerate(sorted(replay, key=lambda e: e["meta"]["case_id"])):
-        target = "validation" if i % args.validation_every == 0 else "train"
-        splits[target].append(example)
+        if i % args.validation_every == 0:
+            splits["validation"].append(example)
+        else:
+            replay_train.append(example)
+    splits["train"].extend(weighted(replay_train, args.replay_weight, weights))
 
     output.mkdir(parents=True)
     files = {}
@@ -118,6 +148,8 @@ def main() -> int:
                 "model": report.model,
                 "split": report.split,
                 "examples": len(replay),
+                "train_weight": args.replay_weight,
+                "category_weights": weights,
                 "benchmark_sha256": sha256_file(BENCHMARK),
             },
         },
