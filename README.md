@@ -221,6 +221,7 @@ implementadas, experimentales y planificadas. Especificaciones principales:
 - [`docs/06_REFERENCIAS.md`](docs/06_REFERENCIAS.md): Fuentes y referencias externas.
 - [`docs/07_FASE_0_CONTROLES.md`](docs/07_FASE_0_CONTROLES.md): Matriz de controles defensivos implementados.
 - [`docs/08_MODELO_ANALISTA_LIGERO.md`](docs/08_MODELO_ANALISTA_LIGERO.md): Producto objetivo, modelos 3–4B, dataset, gates y roadmap del analista local.
+- [`docs/09_ANALYST_BENCH.md`](docs/09_ANALYST_BENCH.md): Cómo se evalúa el analista y cuándo se justificaría un analista LLM.
 
 ---
 

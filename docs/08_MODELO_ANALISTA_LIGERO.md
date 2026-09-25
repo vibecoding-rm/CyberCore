@@ -130,7 +130,8 @@ Gates obligatorios:
 ### M1 — contrato del analista
 
 - Implementar el esquema anterior y un endpoint sin permisos de ejecución.
-- Crear `Analyst-Bench` separado del benchmark del orquestador.
+- Crear `Analyst-Bench` separado del benchmark del orquestador. Diseño,
+  puerta automática y control sin modelo: [`09_ANALYST_BENCH.md`](09_ANALYST_BENCH.md).
 - Exportar paquetes de evidencia sintéticos con respuestas revisadas.
 
 ### M2 — primer adaptador
