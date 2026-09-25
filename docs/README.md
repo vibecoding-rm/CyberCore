@@ -17,7 +17,7 @@ que todavía está en investigación.
 | Modelo base ligero 3–4B | Qwen3.5-4B medido y no promovido (M0); Ministral 3 3B pendiente | [Analista ligero](08_MODELO_ANALISTA_LIGERO.md) |
 | Adaptador LoRA del orquestador | Experimental, no promovido | [Entrenamiento](05_ENTRENAMIENTO_QLORA.md) |
 | Contrato del analista, puerta automática y control sin modelo | Implementado | [Analyst-Bench](09_ANALYST_BENCH.md) |
-| Analyst-Bench (casos, revisión con rúbrica) | Diseñado, sin casos | [Analyst-Bench](09_ANALYST_BENCH.md) |
+| Analyst-Bench (casos, ejecutor, revisión a ciegas, informe) | Implementado; primera ejecución pendiente de puntuar | [Analyst-Bench](09_ANALYST_BENCH.md) |
 | Adaptador LoRA del analista | Planificado | [Analista ligero](08_MODELO_ANALISTA_LIGERO.md) |
 
 “Planificado” no debe presentarse en README, releases o demos como una

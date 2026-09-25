@@ -116,9 +116,48 @@ Un analista LLM se adopta sólo si, en el holdout sellado:
 Si C1 y C2 no superan a C0, CyberCore sigue con las explicaciones del motor y
 no se entrena el adaptador `analyst`.
 
-## Pendiente de implementar
+## Cómo usarlo
 
-1. Generador de expedientes de desarrollo a partir de las reglas.
-2. Prompt del analista y ejecutor que produce C1/C2 sobre cada expediente.
-3. Pantalla de revisión con rúbrica a ciegas y exportación de puntuaciones.
-4. Informe comparativo con la puerta, la rúbrica y el acuerdo entre revisores.
+```bash
+# 1. Casos (ya versionados en config/analyst_bench/; regenerar sólo si cambia el motor)
+python -m scripts.generate_analyst_cases
+
+# 2. Respuestas de C0 y de un LLM (en GPU: el 9B tarda ~5 min por caso en CPU)
+python -m scripts.run_analyst_bench --split development --run-id <id>     --llm C1=qwen3.5:9b --base-url <endpoint> --concurrency 4
+
+# 3. Publicar para revisión a ciegas en /analyst-review (rol approver)
+python -m scripts.publish_analyst_run reports/analyst/runs/<id>.json
+
+# 4. Informe comparativo con la rúbrica y el criterio de adopción
+python -m scripts.analyst_bench_report <id>
+```
+
+Si se corrige un falso positivo de la puerta, `--regate <fichero>` reaplica la
+puerta a una ejecución guardada sin volver a llamar al modelo.
+
+## Estado (2026-09-25)
+
+- Casos: 40 de desarrollo (CVE-2021-41773, CVE-2024-6387, CVE-2014-0160) y 60
+  de holdout (CVE-2023-38408, CVE-2011-2523, CVE-2021-44790), construidos con el
+  motor real; los tres estados aparecen en ambos splits.
+- Primera ejecución `2026-09-25-dev-9b` (desarrollo, C0 y Qwen3.5-9B base en
+  una L4): ambos pasan la puerta en 40/40; el 9B tarda 27 s de media por caso
+  en GPU. Está publicada y **pendiente de puntuar**; sin puntuaciones no hay
+  conclusión sobre si el LLM supera a C0.
+- Generar los casos destapó un fallo del motor: una reproducción de Nuclei en
+  otra IP confirmaba el hallazgo. Corregido en `assess_nuclei_validation`.
+
+## Limitaciones conocidas
+
+- **La revisión no es del todo ciega.** C0 tiene un estilo reconocible (frases
+  fijas, listas vacías en los casos confirmados). Se compensa con dos
+  revisores y publicando los comentarios, pero conviene tenerlo presente al
+  leer el resultado.
+- **La puerta es heurística.** Su primera versión marcó como afirmaciones de
+  confirmación 16 frases del 9B que eran negaciones o condiciones («no puede
+  pasar a 'confirmed'», «una vez confirmada la versión»). Se reescribió para
+  exigir una afirmación sobre la vulnerabilidad o el activo, y esas frases son
+  ahora pruebas de regresión. Puede dejar pasar afirmaciones precedidas de una
+  negación retórica; la rúbrica de fidelidad y calibración las recoge.
+- Los expedientes tienen una sola evidencia de inventario y, como mucho, una de
+  Nuclei; faltan casos con varias fuentes (Wazuh, Greenbone) que se contradigan.

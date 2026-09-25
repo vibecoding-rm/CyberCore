@@ -11,6 +11,7 @@ import asyncio
 from pathlib import Path
 
 from app.analyst.bench import AnalystRun
+from app.event_loop import psycopg_compatible_loop
 from app.settings import get_settings
 from app.storage.postgres_analyst_bench import PostgresAnalystBenchRepository
 
@@ -25,7 +26,7 @@ def main() -> int:
     repository = PostgresAnalystBenchRepository(
         settings.database_url, settings.database_connect_timeout_seconds
     )
-    asyncio.run(repository.publish_run(run))
+    asyncio.run(repository.publish_run(run), loop_factory=psycopg_compatible_loop)
     reviewable = sum(
         answer.passed_gate for result in run.results for answer in result.answers.values()
     )

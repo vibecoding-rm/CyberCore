@@ -9,7 +9,11 @@
         --llm C2=qwen3.5:4b --base-url ...
 
 Every answer is checked with the automatic gate; answers are kept even when
-they fail, so the report shows why. Holdout runs need --reason and are
+they fail, so the report shows why. After fixing a false positive in the
+gate, re-check a run without calling any model:
+
+    python -m scripts.run_analyst_bench --regate reports/analyst/runs/<run>.json
+ Holdout runs need --reason and are
 appended to reports/analyst/HOLDOUT_LOG.md before any answer is produced.
 """
 
@@ -107,6 +111,22 @@ def log_holdout(run_id: str, systems: list[str], reason: str) -> None:
         handle.write(f"| {datetime.now(timezone.utc):%Y-%m-%d} | {run_id} | {', '.join(systems)} | {reason} |\n")
 
 
+def regate(path: Path) -> int:
+    run = AnalystRun.model_validate_json(path.read_text(encoding="utf-8"))
+    cases, digest = load_cases(run.split)
+    if digest != run.cases_sha256:
+        raise SystemExit("Los casos cambiaron desde que se creó esta ejecución")
+    bundles = {c["case_id"]: EvidenceCaseBundle.model_validate(c["bundle"]) for c in cases}
+    for result in run.results:
+        for system, answer in result.answers.items():
+            result.answers[system] = gated(answer.model_dump(exclude={"violations"}), bundles[result.case_id])
+    path.write_text(run.model_dump_json(indent=1), encoding="utf-8", newline="\n")
+    for system in sorted(run.systems):
+        answers = [r.answers[system] for r in run.results if system in r.answers]
+        print(f"{system}: {sum(a.passed_gate for a in answers)}/{len(answers)} pasan la puerta automática")
+    return 0
+
+
 def parse_llm(values: list[str]) -> dict[str, str]:
     systems = {}
     for value in values:
@@ -130,7 +150,11 @@ def main() -> int:
     parser.add_argument("--num-predict", type=int, default=1500)
     parser.add_argument("--limit", type=int, default=None, help="Sólo los N primeros casos (pruebas)")
     parser.add_argument("--reason", default="", help="Obligatorio en el holdout")
+    parser.add_argument("--regate", type=Path, help="Reaplica la puerta a una ejecución guardada")
     args = parser.parse_args()
+
+    if args.regate:
+        return regate(args.regate)
 
     llm_systems = parse_llm(args.llm)
     if args.add_to:

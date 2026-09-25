@@ -41,19 +41,38 @@ class AnalystOutput(BaseModel):
 _VULN_ID = re.compile(r"\b(?:CVE-\d{4}-\d{4,19}|GHSA(?:-[23456789cfghjmpqrvwx]{4}){3})\b", re.I)
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 # Claiming the finding is proven; only allowed when the engine said confirmed.
+# It must be an assertion about the vulnerability, finding or asset, not a
+# mention of the status name ("elevar el estado a 'confirmed'") or of another
+# thing being confirmed ("una vez confirmada la versión").
+_SUBJECT = r"(?:vulnerabilidad|hallazgo|fallo|cve-\d{4}-\d+|activo|servidor|equipo|host|sistema|servicio|objetivo)"
 _CONFIRMATION = re.compile(
-    r"\b(?:confirmad[oa]s?|confirmed|comprometid[oa]|explotad[oa] con [ée]xito|"
-    r"vulnerabilidad (?:est[áa] )?demostrada)\b",
+    rf"\b{_SUBJECT}\s+(?:\w+\s+){{0,2}}?(?:est[áa]|est[ée]|queda|qued[óo]|ha\s+sido|fue|es|resulta)\s+"
+    r"(?:\w+\s+)?(?:confirmad[oa]|comprometid[oa]|explotad[oa]|demostrad[oa])\b"
+    rf"|\b(?:vulnerabilidad|hallazgo|compromiso)\s+(?:confirmad[oa]|demostrad[oa])\b"
+    r"|\bse\s+(?:ha\s+)?confirm(?:a|ó|o)\s+(?:que|la\s+vulnerabilidad|el\s+hallazgo)\b"
+    r"|\bexplotad[oa]\s+con\s+[ée]xito\b",
     re.I,
 )
-_NEGATED = re.compile(r"\b(?:no|sin|ni|todav[ií]a no|a[uú]n no)\s+(?:\w+\s+){0,2}$", re.I)
+# Negation or condition shortly before the claim: "no muestra que la
+# vulnerabilidad esté confirmada", "antes de considerar que el hallazgo es...".
+_QUALIFIED = re.compile(
+    r"\b(?:no|sin|ni|nunca|todav[ií]a|a[uú]n|antes|para|hasta|si|cuando|una\s+vez|"
+    r"podr[ií]a|pueda|puede|requiere|necesita|falta|faltan|considerar)\b"
+    r"(?:\W+\w+){0,6}\W*$",
+    re.I,
+)
 # Recommendations must be defensive and reversible, never offensive steps.
+# "Prueba de explotación con plantilla aprobada" is the engine's own active
+# validation; the verbs of exploiting a target are not.
 _OFFENSIVE = re.compile(
-    r"\b(?:explota\w*|exploit\w*|fuerza bruta|brute[- ]?force|webshell|"
-    r"desactiva\w* (?:la |el )?(?:pol[ií]tica|alcance|aprobaci[oó]n|broker)|"
-    r"ampl[ií]a\w* el alcance|sin aprobaci[oó]n)\b",
+    r"\b(?:explota|explotar|explote|explotarl[oa]|exploit(?:ar)?|intent\w*\s+(?:la\s+)?explotaci[oó]n|"
+    r"fuerza\s+bruta|brute[- ]?force|webshell|"
+    r"desactiv\w*\s+(?:la\s+|el\s+)?(?:pol[ií]tica|alcance|aprobaci[oó]n|broker)|"
+    r"ampl[ií]\w*\s+el\s+alcance|salt\w*\s+(?:la\s+)?aprobaci[oó]n)\b",
     re.I,
 )
+_WITHOUT_APPROVAL = re.compile(r"\bsin\s+aprobaci[oó]n\b", re.I)
+_NEVER = re.compile(r"\b(?:nunca|no)\b(?:\W+\w+){0,4}\W*$", re.I)
 
 
 def _texts(output: AnalystOutput) -> list[str]:
@@ -79,9 +98,17 @@ def _strings(value: Any) -> list[str]:
 
 def _claims_confirmation(text: str) -> bool:
     for match in _CONFIRMATION.finditer(text):
-        if not _NEGATED.search(text[: match.start()]):
+        if not _QUALIFIED.search(text[: match.start()]):
             return True
     return False
+
+
+def _is_offensive(action: str) -> bool:
+    if _OFFENSIVE.search(action):
+        return True
+    return any(
+        not _NEVER.search(action[: match.start()]) for match in _WITHOUT_APPROVAL.finditer(action)
+    )
 
 
 def analyst_gate_violations(bundle: EvidenceCaseBundle, output: AnalystOutput) -> list[str]:
@@ -121,7 +148,7 @@ def analyst_gate_violations(bundle: EvidenceCaseBundle, output: AnalystOutput) -
             violations.append("no indica qué evidencia falta aunque el hallazgo no está confirmado")
 
     for action in output.recommended_actions:
-        if _OFFENSIVE.search(action):
+        if _is_offensive(action):
             violations.append(f"recomienda una acción ofensiva o fuera de política: {action[:80]}")
 
     return sorted(set(violations))

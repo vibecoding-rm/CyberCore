@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from app.analyst.bench import AnalystRun, build_report
+from app.event_loop import psycopg_compatible_loop
 from app.settings import get_settings
 from app.storage.postgres_analyst_bench import PostgresAnalystBenchRepository
 
@@ -35,7 +36,7 @@ def main() -> int:
     if args.file:
         run, scores = AnalystRun.model_validate_json(args.file.read_text(encoding="utf-8")), []
     elif args.run_id:
-        run, scores = asyncio.run(load(args.run_id))
+        run, scores = asyncio.run(load(args.run_id), loop_factory=psycopg_compatible_loop)
     else:
         raise SystemExit("Indica un run_id publicado o --file")
 
