@@ -49,7 +49,9 @@ _CONFIRMATION = re.compile(
     rf"\b{_SUBJECT}\s+(?:\w+\s+){{0,2}}?(?:est[áa]|est[ée]|queda|qued[óo]|ha\s+sido|fue|es|resulta)\s+"
     r"(?:\w+\s+)?(?:confirmad[oa]|comprometid[oa]|explotad[oa]|demostrad[oa])\b"
     rf"|\b(?:vulnerabilidad|hallazgo|compromiso)\s+(?:confirmad[oa]|demostrad[oa])\b"
-    r"|\bse\s+(?:ha\s+)?confirm(?:a|ó|o)\s+(?:que|la\s+vulnerabilidad|el\s+hallazgo)\b"
+    # "se confirmó que el puerto 80 está abierto" is not a claim about the finding.
+    r"|\bse\s+(?:ha\s+)?confirm(?:a|ó|o)\s+(?:la\s+vulnerabilidad|el\s+hallazgo|que\s+(?:\w+\s+){0,3}?"
+    r"(?:es|est[áa]|sea)\s+(?:vulnerable|afectad[oa]|comprometid[oa]|explotable))\b"
     r"|\bexplotad[oa]\s+con\s+[ée]xito\b",
     re.I,
 )

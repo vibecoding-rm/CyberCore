@@ -105,6 +105,8 @@ def test_the_template_control_passes_its_own_gates(status, gaps, conclusion):
     "Volver a validar el hallazgo con aprobación una vez confirmada la versión afectada.",
     "Obtener la aprobación antes de considerar el hallazgo como confirmado.",
     "Marcar el hallazgo como 'no_affected' una vez confirmada la versión.",
+    # Written by the 9B with prompt v2 (run 2026-09-25-dev-9b-r2).
+    "Aunque se detectó una coincidencia pasiva y se confirmó que el puerto 80 está abierto.",
 ])
 def test_mentions_of_confirmation_are_not_claims(text):
     assert analyst_gate_violations(bundle(), answer(summary=text)) == []
