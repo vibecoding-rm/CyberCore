@@ -167,10 +167,17 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   prueba activa). C0 falla por otra vía: llama «validación independiente» a
   ejecuciones negativas, pasivas o en otra IP, y no da acciones en los casos
   confirmados.
-- Ese «no concluyente» viene del motor: `evaluate_range` no compara versiones
-  con letra de OpenSSL (1.0.1e, 1.0.1f…) y las marca como indeterminadas.
-  CyberCAM-Bench toma ese resultado como etiqueta; corregirlo cambiaría
-  también esas etiquetas.
+- Ese «no concluyente» venía del motor: `evaluate_range` no comparaba versiones
+  con letra de OpenSSL (1.0.1e, 1.0.1f…). **Corregido**: los rangos de la CPE
+  `openssl:openssl` usan ahora el esquema de OpenSSL (1.0.1 < 1.0.1a < … <
+  1.0.1z < 1.0.1za); el resto de productos sigue con el comparador
+  conservador. CyberCAM-Bench y su holdout no cambian (usan nombres de producto
+  neutros), tampoco el holdout del analista. En desarrollo cambian seis casos
+  de Heartbleed (uno pasa a `confirmed`, uno a contradicción, cuatro a
+  `probable`), así que la ejecución `2026-09-25-dev-9b` y sus puntuaciones
+  corresponden a la versión anterior de los casos: las cuatro fidelidades 0 se
+  debían a esta limitación. Hace falta una ejecución nueva sobre los casos
+  actuales.
 - Falta un segundo revisor (humano) antes de dar el resultado por completo.
 - Generar los casos destapó un fallo del motor: una reproducción de Nuclei en
   otra IP confirmaba el hallazgo. Corregido en `assess_nuclei_validation`.

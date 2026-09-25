@@ -86,3 +86,31 @@ def test_parse_cpe_formats():
 
     assert parse_cpe("cpe:2.3:a:*:openssh:1.0") is None
     assert parse_cpe("openssh 9.6") is None
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "expected"),
+    [
+        ("1.0.1", "1.0.1a", -1),
+        ("1.0.1e", "1.0.1f", -1),
+        ("1.0.1f", "1.0.1f", 0),
+        ("1.0.1z", "1.0.1za", -1),
+        ("1.0.2za", "1.0.2zb", -1),
+        ("1.0.0t", "1.0.1", -1),
+        ("1.1.1w", "3.0.0", -1),
+        ("1.0.1e-fips", "1.0.1f", None),
+        ("3.0.0-beta1", "3.0.0", None),
+    ],
+)
+def test_openssl_scheme_orders_letter_releases(left, right, expected):
+    assert compare_versions(left, right, "openssl") == expected
+
+
+def test_letter_suffix_stays_ambiguous_outside_known_schemes():
+    # "1.0rc1" is older than "1.0" but "1.0.1e" is newer than "1.0.1" in OpenSSL:
+    # without the product the comparator must not guess.
+    assert compare_versions("1.0.1e", "1.0.1") is None
+    assert evaluate_range("1.0.1e", start_including="1.0.1", end_including="1.0.1f")[0] == "indeterminate"
+    assert evaluate_range(
+        "1.0.1e", start_including="1.0.1", end_including="1.0.1f", scheme="openssl"
+    )[0] == "affected"

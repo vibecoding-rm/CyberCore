@@ -11,11 +11,11 @@
         "CVE-2024-6387"
       ],
       "finding_status": {
-        "candidate": 25,
-        "confirmed": 3,
-        "probable": 12
+        "candidate": 22,
+        "confirmed": 4,
+        "probable": 14
       },
-      "sha256": "0971c8a94b33641b5781f0b6b58801605d2322ff80d7cd912696c6350f31b9ac"
+      "sha256": "f3ec4b705eefe34cd4c7e0cae6abaae3644b836b9a0f852afff4591ef26ae4f8"
     },
     "holdout": {
       "cases": 60,

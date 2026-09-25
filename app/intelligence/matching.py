@@ -3,7 +3,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict
 
 from app.intelligence.cpe import parse_cpe
-from app.intelligence.versions import Verdict, evaluate_range
+from app.intelligence.versions import Verdict, evaluate_range, scheme_for
 
 MatchVerdict = Literal["affected", "not_affected", "indeterminate", "no_data"]
 
@@ -69,6 +69,7 @@ def evaluate_stored_range(installed: str, stored: dict[str, Any]) -> RangeEvalua
         start_excluding=stored.get("version_start_excluding"),
         end_including=stored.get("version_end_including"),
         end_excluding=stored.get("version_end_excluding"),
+        scheme=scheme_for(stored.get("vendor"), stored.get("product")),
     )
     if verdict == "affected" and stored.get("requires_platform"):
         return RangeEvaluation(

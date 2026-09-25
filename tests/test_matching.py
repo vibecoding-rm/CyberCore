@@ -227,3 +227,18 @@ async def test_match_endpoint():
     assert both.status_code == 422
     assert bad_cpe.status_code == 422
     assert anonymous.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_openssl_letter_versions_use_the_openssl_scheme():
+    heartbleed = stored(
+        vulnerability_id="CVE-2014-0160", vendor="openssl", product="openssl",
+        version_start_including="1.0.1", version_end_including="1.0.1f",
+        criteria="cpe:2.3:a:openssl:openssl:*:*:*:*:*:*:*:*",
+    )
+    matcher = VulnerabilityMatcher(FakeRangeRepository([heartbleed]))
+    inside = await matcher.match_cpe("CVE-2014-0160", "cpe:/a:openssl:openssl:1.0.1e")
+    fixed = await matcher.match_cpe("CVE-2014-0160", "cpe:/a:openssl:openssl:1.0.1g")
+
+    assert inside.verdict == "affected"
+    assert fixed.verdict == "not_affected"
