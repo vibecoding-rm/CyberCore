@@ -14,7 +14,7 @@ que todavía está en investigación.
 | Expediente portable firmado (Ed25519) | Implementado | [README](../README.md#-api-rest) |
 | Filtro de alcance previo al modelo | Implementado, heurístico (la frontera es el broker) | [intent_guard](../app/core/intent_guard.py) |
 | Orquestador local 9B | Baseline implementado | [Modelos](02_MODELOS_Y_BENCHMARK.md) |
-| Modelo base ligero 3–4B | Experimento siguiente | [Analista ligero](08_MODELO_ANALISTA_LIGERO.md) |
+| Modelo base ligero 3–4B | Qwen3.5-4B medido y no promovido (M0); Ministral 3 3B pendiente | [Analista ligero](08_MODELO_ANALISTA_LIGERO.md) |
 | Adaptador LoRA del orquestador | Experimental, no promovido | [Entrenamiento](05_ENTRENAMIENTO_QLORA.md) |
 | Contrato del analista, puerta automática y control sin modelo | Implementado | [Analyst-Bench](09_ANALYST_BENCH.md) |
 | Analyst-Bench (casos, revisión con rúbrica) | Diseñado, sin casos | [Analyst-Bench](09_ANALYST_BENCH.md) |

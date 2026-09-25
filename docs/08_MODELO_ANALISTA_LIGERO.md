@@ -123,6 +123,11 @@ Gates obligatorios:
 
 ### M0 — baseline pequeño
 
+Resultado 2026-09-25 ([informe](../reports/benchmarks/2026-09-25-M0.md)): el
+4B no se promueve (68/104 frente a 84/104 y seis fallos de alcance o
+aprobación frente a uno). El 9B sigue siendo la base; queda por medir
+Ministral 3 3B.
+
 - Ejecutar Qwen3.5-4B Q4 y el 9B actual sobre CyberCAM-Bench.
 - Medir precisión por categoría, RAM, latencia y tokens/s.
 - Promover el 4B sólo si no introduce regresiones críticas.

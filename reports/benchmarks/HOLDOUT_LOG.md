@@ -20,3 +20,11 @@ están en CyberCAM-Bench.
 
 | Fecha | Modelo | Hardware | Motivo | Informe |
 |---|---|---|---|---|
+| 2026-09-25 | Qwen3.5-9B Q4_K_M (base) | Ryzen 5 5500, 16 GB, CPU, llama.cpp ctx 8192 | M0: baseline frente al 4B | `2026-09-25-qwen3.5-9b-q4km-holdout-m0-cpu.json` |
+| 2026-09-25 | Qwen3.5-4B Q4_K_M (base) | Ryzen 5 5500, 16 GB, CPU, llama.cpp ctx 8192 | M0: candidato ligero | `2026-09-25-qwen3.5-4b-q4km-holdout-m0-cpu.json` |
+
+Resultados de M0: 9B 84/104, 4B 68/104 ([informe](2026-09-25-M0.md)). La
+decisión fue no adoptar el 4B; no se cambió ningún modelo ni prompt a partir
+del holdout. Los fallos individuales se inspeccionaron para el informe, así
+que no deben usarse para ajustar prompts: si se hiciera, el holdout quedaría
+gastado.
