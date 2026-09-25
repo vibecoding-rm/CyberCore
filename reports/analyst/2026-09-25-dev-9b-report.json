@@ -1,0 +1,70 @@
+{
+  "run_id": "2026-09-25-dev-9b",
+  "split": "development",
+  "systems": {
+    "C0": {
+      "info": {
+        "kind": "template"
+      },
+      "cases": 40,
+      "gate_passed": 40,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 40,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.6,
+        "completeness": 1,
+        "actionability": 0.925,
+        "calibration": 1.075,
+        "clarity": 1
+      },
+      "mean_total": 5.6,
+      "fidelity_zero": [],
+      "mean_latency_ms": 0.0
+    },
+    "C1": {
+      "info": {
+        "kind": "llm",
+        "model": "qwen3.5:9b",
+        "endpoint": "vibecoding-rm--cybercore-llm-serve.modal.run",
+        "hardware": "Modal L4 GPU, llama.cpp Q4_K_M"
+      },
+      "cases": 40,
+      "gate_passed": 40,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 40,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.4,
+        "completeness": 1.95,
+        "actionability": 1.85,
+        "calibration": 1.7,
+        "clarity": 1.975
+      },
+      "mean_total": 8.875,
+      "fidelity_zero": [
+        "analyst-dev-017",
+        "analyst-dev-018",
+        "analyst-dev-030",
+        "analyst-dev-039"
+      ],
+      "mean_latency_ms": 26934.49
+    }
+  },
+  "agreement": {
+    "compared_scores": 0,
+    "exact": null,
+    "within_one": null
+  },
+  "adoption": {
+    "C1": {
+      "complete": false,
+      "meets_criteria": false,
+      "reasons": [
+        "fidelidad 0 en 4 casos"
+      ]
+    }
+  }
+}

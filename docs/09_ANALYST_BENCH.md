@@ -144,8 +144,34 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   motor real; los tres estados aparecen en ambos splits.
 - Primera ejecución `2026-09-25-dev-9b` (desarrollo, C0 y Qwen3.5-9B base en
   una L4): ambos pasan la puerta en 40/40; el 9B tarda 27 s de media por caso
-  en GPU. Está publicada y **pendiente de puntuar**; sin puntuaciones no hay
-  conclusión sobre si el LLM supera a C0.
+  en GPU (unos 5 min en la CPU del equipo de 16 GB).
+- Primera revisión, **un solo revisor** (`claude-revisor`, que no es ciego:
+  escribió C0 y reconoce su estilo), informe
+  `reports/analyst/2026-09-25-dev-9b-report.json`:
+
+  | Criterio | C0 (plantilla) | C1 (9B) |
+  |---|---|---|
+  | Fidelidad | **1,60** | 1,40 |
+  | Completitud | 1,00 | **1,95** |
+  | Accionabilidad | 0,93 | **1,85** |
+  | Calibración | 1,08 | **1,70** |
+  | Claridad | 1,00 | **1,98** |
+  | Total (de 10) | 5,60 | **8,88** |
+  | Fidelidad 0 | 0 | 4 |
+
+  El 9B explica mucho mejor, pero **no cumple el criterio de adopción**:
+  cuatro respuestas afirman que OpenSSL 1.0.1e está en el rango de Heartbleed
+  cuando el expediente dice que la comparación no fue concluyente (dato de su
+  memoria, cierto en la realidad pero ajeno al expediente), y en unas diez
+  razona mal sobre backports (los presenta como causa de falsos positivos de una
+  prueba activa). C0 falla por otra vía: llama «validación independiente» a
+  ejecuciones negativas, pasivas o en otra IP, y no da acciones en los casos
+  confirmados.
+- Ese «no concluyente» viene del motor: `evaluate_range` no compara versiones
+  con letra de OpenSSL (1.0.1e, 1.0.1f…) y las marca como indeterminadas.
+  CyberCAM-Bench toma ese resultado como etiqueta; corregirlo cambiaría
+  también esas etiquetas.
+- Falta un segundo revisor (humano) antes de dar el resultado por completo.
 - Generar los casos destapó un fallo del motor: una reproducción de Nuclei en
   otra IP confirmaba el hallazgo. Corregido en `assess_nuclei_validation`.
 
