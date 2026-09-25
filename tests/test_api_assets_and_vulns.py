@@ -4,7 +4,6 @@ import httpx
 import pytest
 
 from app.core.auth import ApiCredential, ApiKeyAuthenticator
-from app.core.budgets import ConcurrencyLease
 from app.main import app
 from app.storage.postgres_vulnerabilities import PostgresVulnerabilityRepository
 

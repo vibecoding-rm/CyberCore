@@ -1,7 +1,5 @@
-from datetime import datetime, timezone
 import os
 from uuid import uuid4
-import psycopg
 import pytest
 
 from app.api.models import Evidence

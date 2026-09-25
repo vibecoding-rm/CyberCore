@@ -8,8 +8,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.tools.base import ToolAdapter
-
 logger = logging.getLogger(__name__)
 
 

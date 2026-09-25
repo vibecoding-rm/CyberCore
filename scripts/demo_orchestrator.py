@@ -12,7 +12,6 @@ from app.core.tool_broker import ToolBroker
 from app.event_loop import configure_windows_asyncio
 from app.llm.factory import create_chat_client, llm_base_url
 from app.settings import get_settings
-from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
@@ -57,10 +56,6 @@ async def main() -> None:
         request_window_seconds=settings.budget_request_window_seconds,
         lease_grace_seconds=settings.budget_lease_grace_seconds,
         budget_key=settings.budget_key,
-    )
-    approval_repo = PostgresApprovalRepository(
-        database_url=settings.database_url,
-        connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
     journal = PostgresExecutionJournal(
         database_url=settings.database_url,
