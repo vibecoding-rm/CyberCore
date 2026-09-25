@@ -3,6 +3,13 @@ import pytest
 modal_train = pytest.importorskip("training.modal_train")
 
 
+def test_base_model_aliases_are_explicit_and_cache_safe():
+    assert modal_train.resolve_base_model("qwen3.5-4b") == "Qwen/Qwen3.5-4B"
+    assert modal_train.hf_cache_directory("Qwen/Qwen3.5-4B") == "models--Qwen--Qwen3.5-4B"
+    with pytest.raises(ValueError, match="Modelo base no soportado"):
+        modal_train.resolve_base_model("arbitrary/model")
+
+
 def test_first_json_object_skips_prose_and_broken_braces():
     text = 'Claro {roto} aquí va: {"action_type": "final_answer", "final_summary": "ok"} fin'
     assert modal_train.first_json_object(text) == {"action_type": "final_answer", "final_summary": "ok"}

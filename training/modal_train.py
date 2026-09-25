@@ -7,7 +7,7 @@ live in another Volume, never in git.
 
     # once: pip install modal && python -m modal setup
     PYTHONUTF8=1 python -m modal run training/modal_train.py --action smoke
-    PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --dataset v1 --adapter v1
+    PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --dataset v1 --adapter v1 --base-model qwen3.5-4b
 
 `smoke` loads the model, renders one example with the production chat template
 and runs 2 optimizer steps on a built-in toy example: it proves the image, GPU
@@ -22,7 +22,13 @@ from pathlib import Path, PurePosixPath
 
 import modal
 
-BASE_MODEL = "Qwen/Qwen3.5-9B"
+from app.training.quality import audit_training_splits, blocking_quality_issues
+
+SUPPORTED_BASE_MODELS = {
+    "qwen3.5-4b": "Qwen/Qwen3.5-4B",
+    "qwen3.5-9b": "Qwen/Qwen3.5-9B",
+}
+DEFAULT_BASE_MODEL = "qwen3.5-9b"
 # L40S (48 GB) is comfortable; L4 (24 GB) is the tight fallback.
 GPU = os.environ.get("CYBERCORE_MODAL_GPU", "L40S")
 HOURS = 3600
@@ -33,6 +39,18 @@ LOCAL_DATASETS = Path(__file__).resolve().parents[1] / "data" / "training"
 LOCAL_ADAPTERS = Path(__file__).resolve().parents[1] / "adapters"
 # Unsloth's recommended Qwen3.5 targets (language-model projections).
 TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+
+def resolve_base_model(name: str) -> str:
+    try:
+        return SUPPORTED_BASE_MODELS[name]
+    except KeyError as exc:
+        choices = ", ".join(sorted(SUPPORTED_BASE_MODELS))
+        raise ValueError(f"Modelo base no soportado: {name!r}. Opciones: {choices}") from exc
+
+
+def hf_cache_directory(model_id: str) -> str:
+    return "models--" + model_id.replace("/", "--")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -96,11 +114,14 @@ def to_prompt_completion(examples: list[dict], tokenizer) -> list[dict]:
 def train(
     dataset: str | None,
     adapter: str,
+    base_model: str = DEFAULT_BASE_MODEL,
     epochs: float = 2.0,
     learning_rate: float = 2e-4,
     rank: int = 16,
     max_length: int = 4096,
     max_steps: int = -1,
+    max_exact_duplicate_rate: float = 0.05,
+    allow_mixed_protocols: bool = False,
 ) -> dict:
     from unsloth import FastLanguageModel  # must be imported before trl/transformers
 
@@ -108,6 +129,7 @@ def train(
     from datasets import Dataset
     from trl import SFTConfig, SFTTrainer
 
+    model_id = resolve_base_model(base_model)
     data_dir = Path(str(DATA_DIR))  # runs on Linux: a concrete path
     output = data_dir / "adapters" / adapter
     if output.exists():
@@ -123,8 +145,21 @@ def train(
     if not train_examples:
         raise RuntimeError("El split train está vacío")
 
+    quality_report = audit_training_splits({
+        "train": train_examples,
+        "validation": validation_examples,
+        "test": read_jsonl(dataset_dir / "test.jsonl") if dataset is not None else [],
+    })
+    quality_issues = blocking_quality_issues(
+        quality_report,
+        max_exact_duplicate_rate=max_exact_duplicate_rate,
+        allow_mixed_protocols=allow_mixed_protocols,
+    )
+    if quality_issues:
+        raise RuntimeError("Dataset rechazado: " + "; ".join(quality_issues))
+
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=BASE_MODEL,
+        model_name=model_id,
         max_seq_length=max_length,
         load_in_4bit=False,
         load_in_16bit=True,
@@ -177,7 +212,8 @@ def train(
 
     summary = {
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "base_model": BASE_MODEL,
+        "base_model": model_id,
+        "base_model_alias": base_model,
         "method": "LoRA 16-bit (Unsloth)",
         "gpu": GPU,
         "dataset": manifest["name"],
@@ -189,6 +225,7 @@ def train(
         },
         "train_examples": len(train_rows),
         "validation_examples": len(validation_rows),
+        "dataset_quality": quality_report,
         "train_loss": stats.training_loss,
         "log_history": trainer.state.log_history,
         "status": "pending_evaluation",
@@ -328,7 +365,10 @@ def to_gguf(adapter: str, quantization: str = "Q4_K_M") -> dict:
         # Use the base model's original tokenizer files from the HF cache.
         import shutil
 
-        snapshots = sorted((Path(str(HF_CACHE)) / "models--Qwen--Qwen3.5-9B" / "snapshots").glob("*"))
+        manifest_path = data_dir / "adapters" / adapter / "training_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cache_dir = hf_cache_directory(manifest["base_model"])
+        snapshots = sorted((Path(str(HF_CACHE)) / cache_dir / "snapshots").glob("*"))
         if not snapshots:
             raise RuntimeError("No está en caché el tokenizer del modelo base")
         for name in ("tokenizer.json", "tokenizer_config.json", "vocab.json", "merges.txt",
@@ -354,7 +394,9 @@ def to_gguf(adapter: str, quantization: str = "Q4_K_M") -> dict:
 
 @app.local_entrypoint()
 def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str = "test",
-         epochs: float = 2.0, learning_rate: float = 2e-4):
+         epochs: float = 2.0, learning_rate: float = 2e-4,
+         base_model: str = DEFAULT_BASE_MODEL,
+         max_exact_duplicate_rate: float = 0.05, allow_mixed_protocols: bool = False):
     if action == "gguf":
         if not adapter:
             raise SystemExit("Uso: --action gguf --adapter <nombre>")
@@ -372,7 +414,7 @@ def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str
         return
     if action == "smoke":
         name = f"smoke-{datetime.now(timezone.utc):%Y%m%d%H%M%S}"
-        summary = train.remote(None, name, max_steps=2, max_length=1024)
+        summary = train.remote(None, name, base_model=base_model, max_steps=2, max_length=1024)
         print(json.dumps({k: summary[k] for k in ("train_loss", "train_examples", "status")}, indent=2))
         return
     if action != "train" or not dataset or not adapter:
@@ -382,7 +424,15 @@ def main(action: str = "smoke", dataset: str = "", adapter: str = "", split: str
     verify_manifest(local)
     with data_volume.batch_upload(force=True) as batch:
         batch.put_directory(str(local), f"/datasets/{dataset}")
-    summary = train.remote(dataset, adapter, epochs=epochs, learning_rate=learning_rate)
+    summary = train.remote(
+        dataset,
+        adapter,
+        base_model=base_model,
+        epochs=epochs,
+        learning_rate=learning_rate,
+        max_exact_duplicate_rate=max_exact_duplicate_rate,
+        allow_mixed_protocols=allow_mixed_protocols,
+    )
     print(json.dumps({k: v for k, v in summary.items() if k != "log_history"}, indent=2, default=str))
 
     target = LOCAL_ADAPTERS / adapter
