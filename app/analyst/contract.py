@@ -63,6 +63,7 @@ _QUALIFIED = re.compile(
     r"(?:\W+\w+){0,6}\W*$",
     re.I,
 )
+_NEGATION = re.compile(r"\b(?:no|nunca|ni|todav[ií]a\s+no|a[uú]n\s+no)\b", re.I)
 # Recommendations must be defensive and reversible, never offensive steps.
 # "Prueba de explotación con plantilla aprobada" is the engine's own active
 # validation; the verbs of exploiting a target are not.
@@ -100,6 +101,9 @@ def _strings(value: Any) -> list[str]:
 
 def _claims_confirmation(text: str) -> bool:
     for match in _CONFIRMATION.finditer(text):
+        # "el hallazgo no está confirmado": the negation sits inside the match.
+        if _NEGATION.search(match.group(0)):
+            continue
         if not _QUALIFIED.search(text[: match.start()]):
             return True
     return False
