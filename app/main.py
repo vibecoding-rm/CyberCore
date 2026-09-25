@@ -25,6 +25,16 @@ from app.api.models import (
 from app.agent.models import AgentRunResult, OrchestratorRunRequest
 from app.agent.orchestrator import CyberCoreOrchestrator
 from app.agent.prompts import render_system_prompt
+from app.analyst.bench import (
+    BlindCase,
+    RunSummary,
+    ScoreInput,
+    StoredScore,
+    build_report,
+    next_blind_case,
+    reviewable_answer,
+    summarize,
+)
 from app.agent.traces import (
     AgentTrace,
     TraceReview,
@@ -54,6 +64,12 @@ from app.storage.postgres_approvals import PostgresApprovalRepository
 from app.storage.postgres_assets import PostgresAssetRepository
 from app.storage.postgres_budgets import PostgresBudgetCoordinator
 from app.storage.postgres_journal import PostgresExecutionJournal
+from app.storage.postgres_analyst_bench import (
+    AnalystBenchStoreError,
+    AnalystRunNotFoundError,
+    DuplicateScoreError,
+    PostgresAnalystBenchRepository,
+)
 from app.storage.postgres_traces import PostgresTraceRepository, TraceNotFoundError
 from app.storage.postgres_vulnerabilities import (
     PostgresVulnerabilityRepository,
@@ -103,6 +119,10 @@ async def lifespan(app: FastAPI):
     )
     app.state.evidence_analyzer = EvidenceGapAnalyzer()
     app.state.trace_repository = PostgresTraceRepository(
+        database_url=settings.database_url,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+    )
+    app.state.analyst_bench = PostgresAnalystBenchRepository(
         database_url=settings.database_url,
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
@@ -235,6 +255,11 @@ REVIEW_FILES = {
     "review.js": ("review.js", "text/javascript; charset=utf-8"),
     "review.css": ("review.css", "text/css; charset=utf-8"),
 }
+ANALYST_REVIEW_FILES = {
+    "": ("analyst_review.html", "text/html; charset=utf-8"),
+    "analyst_review.js": ("analyst_review.js", "text/javascript; charset=utf-8"),
+    "review.css": ("review.css", "text/css; charset=utf-8"),
+}
 REVIEW_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
@@ -252,6 +277,17 @@ async def review_page(asset: str = "") -> Response:
     if asset not in REVIEW_FILES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     filename, media_type = REVIEW_FILES[asset]
+    return Response(
+        (WEB_DIR / filename).read_bytes(), media_type=media_type, headers=REVIEW_HEADERS
+    )
+
+
+@app.get("/analyst-review", include_in_schema=False)
+@app.get("/analyst-review/{asset}", include_in_schema=False)
+async def analyst_review_page(asset: str = "") -> Response:
+    if asset not in ANALYST_REVIEW_FILES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    filename, media_type = ANALYST_REVIEW_FILES[asset]
     return Response(
         (WEB_DIR / filename).read_bytes(), media_type=media_type, headers=REVIEW_HEADERS
     )
@@ -750,4 +786,87 @@ def _trace_store_unavailable() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="El almacén de trazas no está disponible",
+    )
+
+
+# --- Analyst-Bench (docs/09_ANALYST_BENCH.md) ---------------------------------
+
+
+async def _analyst_run(run_id: str):
+    try:
+        return await app.state.analyst_bench.get_run(run_id)
+    except AnalystRunNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejecución no encontrada"
+        ) from exc
+    except AnalystBenchStoreError as exc:
+        raise _analyst_bench_unavailable() from exc
+
+
+@app.get("/v1/analyst-bench/runs", response_model=list[RunSummary])
+async def list_analyst_runs(
+    principal: Principal = Depends(require_approver),
+) -> list[RunSummary]:
+    try:
+        return [summarize(run) for run in await app.state.analyst_bench.list_runs()]
+    except AnalystBenchStoreError as exc:
+        raise _analyst_bench_unavailable() from exc
+
+
+@app.get("/v1/analyst-bench/runs/{run_id}/next", response_model=BlindCase | None)
+async def next_analyst_case(
+    run_id: str,
+    principal: Principal = Depends(require_approver),
+) -> BlindCase | None:
+    """Next case for this reviewer, with answers anonymised and shuffled."""
+    run = await _analyst_run(run_id)
+    try:
+        scores = await app.state.analyst_bench.scores(run_id)
+    except AnalystBenchStoreError as exc:
+        raise _analyst_bench_unavailable() from exc
+    return next_blind_case(run, principal.subject, scores)
+
+
+@app.post(
+    "/v1/analyst-bench/runs/{run_id}/scores",
+    response_model=StoredScore,
+    status_code=status.HTTP_201_CREATED,
+)
+async def score_analyst_answer(
+    run_id: str,
+    score: ScoreInput,
+    principal: Principal = Depends(require_approver),
+) -> StoredScore:
+    run = await _analyst_run(run_id)
+    if not reviewable_answer(run, score.case_id, score.answer_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esa respuesta no existe o no pasó la puerta automática",
+        )
+    try:
+        return await app.state.analyst_bench.add_score(run_id, principal.subject, score)
+    except DuplicateScoreError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except AnalystBenchStoreError as exc:
+        raise _analyst_bench_unavailable() from exc
+
+
+@app.get("/v1/analyst-bench/runs/{run_id}/report")
+async def analyst_run_report(
+    run_id: str,
+    principal: Principal = Depends(require_approver),
+) -> dict:
+    """Unblinded aggregate; consult it only after finishing your own reviews."""
+    run = await _analyst_run(run_id)
+    try:
+        scores = await app.state.analyst_bench.scores(run_id)
+    except AnalystBenchStoreError as exc:
+        raise _analyst_bench_unavailable() from exc
+    return build_report(run, scores)
+
+
+def _analyst_bench_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="El almacén de Analyst-Bench no está disponible",
     )

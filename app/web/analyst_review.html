@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analyst-Bench · CyberCore</title>
+  <link rel="stylesheet" href="/analyst-review/review.css">
+  <script src="/analyst-review/analyst_review.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">CyberCore <span>· Analyst-Bench, revisión a ciegas</span></div>
+    <div class="session" id="session" hidden>
+      <span id="progress"></span>
+      <button type="button" id="logout" class="ghost">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login" class="login card">
+      <h1>Puntuar explicaciones de hallazgos</h1>
+      <p>Verás un expediente y varias explicaciones anónimas en orden aleatorio.
+        Puntúa cada una con la rúbrica sin intentar adivinar quién la escribió.</p>
+      <form id="login-form">
+        <label for="api-key"><span>Clave de API de un revisor (rol <code>approver</code>)</span></label>
+        <input id="api-key" type="password" autocomplete="off" required minlength="16">
+        <button type="submit">Entrar</button>
+        <p class="hint">La clave sólo se guarda en esta pestaña y se borra al cerrarla.</p>
+        <p class="error" id="login-error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="runs" class="card runs" hidden>
+      <h2>Ejecuciones publicadas</h2>
+      <ul id="run-list" class="trace-list"></ul>
+    </section>
+
+    <section id="case" class="bench" hidden></section>
+  </main>
+
+  <template id="rubric-template">
+    <fieldset class="rubric">
+      <legend></legend>
+      <p class="hint"></p>
+      <div class="scale">
+        <label><input type="radio" value="0" required> 0</label>
+        <label><input type="radio" value="1"> 1</label>
+        <label><input type="radio" value="2"> 2</label>
+      </div>
+    </fieldset>
+  </template>
+</body>
+</html>
