@@ -10,6 +10,7 @@ from app.api.models import (
     ApprovalResponse,
     EvidenceAnalysisRequest,
     EvidenceAssessment,
+    EvidenceCaseBundle,
     FindingExportRequest,
     FindingExportResponse,
     InventoryAssessmentRequest,
@@ -33,6 +34,7 @@ from app.core.approvals import ApprovalService, ApprovalStoreError
 from app.core.audit import AuditStoreError, EvidenceIntegrityError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
+from app.core.evidence_bundle import build_evidence_case
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
 from app.integrations.defectdojo import (
@@ -419,8 +421,18 @@ async def analyze_sealed_evidence(
     principal: Principal = Depends(require_operator),
 ) -> EvidenceAssessment:
     """Assess evidence previously sealed by the broker, never client-supplied data."""
-    assessment, _inventory, _info = await _assess_sealed(request)
+    assessment, _inventory, _validation, _info = await _assess_sealed(request)
     return assessment
+
+
+@app.post("/v1/evidence/cases", response_model=EvidenceCaseBundle)
+async def create_evidence_case(
+    request: EvidenceAnalysisRequest,
+    principal: Principal = Depends(require_operator),
+) -> EvidenceCaseBundle:
+    """Create a portable snapshot after re-verifying every evidence hash."""
+    assessment, inventory, validation, info = await _assess_sealed(request)
+    return build_evidence_case(assessment, inventory, validation, info)
 
 
 @app.post("/v1/findings/export", response_model=FindingExportResponse)
@@ -429,7 +441,7 @@ async def export_finding(
     principal: Principal = Depends(require_operator),
 ) -> FindingExportResponse:
     """Re-assess sealed evidence server-side and push the result to DefectDojo."""
-    assessment, inventory, info = await _assess_sealed(request)
+    assessment, inventory, _validation, info = await _assess_sealed(request)
     try:
         finding = build_generic_finding(assessment, inventory, info)
     except ValueError as exc:
@@ -487,7 +499,7 @@ async def _assess_sealed(request: EvidenceAnalysisRequest):
         version_matches=version_matches,
         validation_evidence=validation,
     )
-    return assessment, inventory, vuln_info
+    return assessment, inventory, validation, vuln_info
 
 
 async def _load_evidence(evidence_id: str):

@@ -256,3 +256,26 @@ async def test_evidence_endpoint_confirms_from_sealed_evidence():
     assert down.status_code == 503
     assert not_inventory.status_code == 422
     assert raw_payload.status_code == 422  # clients cannot inject evidence bodies
+
+
+@pytest.mark.asyncio
+async def test_evidence_case_endpoint_contains_verified_snapshot():
+    inv, val = inventory(), nuclei_evidence()
+    store = FakeEvidenceStore({inv.evidence_id: inv, val.evidence_id: val})
+    body = {
+        "vulnerability_id": CVE,
+        "inventory_evidence_id": inv.evidence_id,
+        "validation_evidence_ids": [val.evidence_id],
+    }
+    async with api_client(store) as client:
+        response = await client.post("/v1/evidence/cases", json=body)
+
+    assert response.status_code == 200
+    bundle = response.json()
+    assert bundle["schema_version"] == "cybercore.evidence-case/v1"
+    assert bundle["case_id"].startswith("CASE-")
+    assert bundle["assessment"]["finding_status"] == "confirmed"
+    assert [item["evidence_id"] for item in bundle["evidence"]] == [
+        inv.evidence_id, val.evidence_id
+    ]
+    assert len(bundle["bundle_sha256"]) == 64

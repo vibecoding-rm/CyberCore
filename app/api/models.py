@@ -155,6 +155,23 @@ class FindingExportResponse(BaseModel):
     defectdojo: dict[str, Any] | None = None
 
 
+class EvidenceCaseBundle(BaseModel):
+    """Portable, tamper-evident snapshot built only from sealed evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["cybercore.evidence-case/v1"]
+    case_id: str = Field(pattern=r"^CASE-[0-9A-F]{16}$")
+    generated_at: datetime
+    target: str
+    vulnerability_id: str
+    assessment: EvidenceAssessment
+    vulnerability_snapshot: dict[str, Any] | None = None
+    evidence: list[Evidence] = Field(min_length=1, max_length=11)
+    integrity_algorithm: Literal["sha256"] = "sha256"
+    bundle_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class InventoryAssessmentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
