@@ -13,6 +13,7 @@ from app.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT, build_agent_step_promp
 from app.agent.traces import AgentTrace, TraceRecorder, TraceStep
 from app.api.models import ToolRequest
 from app.core.evidence_analysis import EvidenceGapAnalyzer
+from app.core.intent_guard import inspect_intent_scope
 from app.core.tool_broker import ToolBroker
 from app.llm.base import ChatClient
 from app.storage.postgres_assets import PostgresAssetRepository
@@ -106,6 +107,23 @@ class CyberCoreOrchestrator:
         discovered_assets: list[dict[str, Any]] = []
 
         logger.info(f"Iniciando orquestación {run_id} para: {operator_intent}")
+
+        # Scope is a deterministic security boundary, not an LLM capability.
+        # The broker validates structured tool arguments again before execution.
+        preflight = inspect_intent_scope(operator_intent, self.broker.policy)
+        if not preflight.allowed:
+            targets = ", ".join(preflight.targets)
+            return AgentRunResult(
+                run_id=run_id,
+                operator_intent=operator_intent,
+                status="denied",
+                steps=steps,
+                discovered_assets=discovered_assets,
+                final_report=(
+                    f"Solicitud denegada antes de consultar al modelo: el objetivo {targets} "
+                    "está fuera del alcance autorizado."
+                ),
+            )
 
         for step_idx in range(1, self.max_steps + 1):
             messages = build_agent_step_prompt(

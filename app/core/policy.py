@@ -162,6 +162,10 @@ class PolicyEngine:
             for policy in self.tool_policies.values()
         )
 
+    def validate_scope(self, target: str) -> str | None:
+        """Validate a target without coupling the check to a particular tool."""
+        return self._validate_scope(target)
+
     def _validate_scope(self, target: str) -> str | None:
         try:
             candidate: IPTarget = (
