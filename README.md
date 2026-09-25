@@ -1,8 +1,8 @@
 # CyberCore
 
 <p align="center">
-  <strong>Plataforma Autónoma de Análisis Defensivo y Gestión de Vulnerabilidades</strong><br>
-  <em>Gobernanza estricta de alcance, herramientas mediadas por un broker y evidencia sellada con SHA-256.</em>
+  <strong>Analista defensivo local de vulnerabilidades, basado en evidencia</strong><br>
+  <em>Gobernanza estricta de alcance, herramientas mediadas por un broker y expedientes de evidencia firmados.</em>
 </p>
 
 <p align="center">
@@ -23,9 +23,9 @@
 En CyberCore:
 1. **La evidencia decide; el modelo explica y organiza.**
 2. **Ningún LLM tiene acceso directo a una shell.** Toda interacción ocurre mediante contratos tipados y estrictamente validados en [ToolBroker](app/core/tool_broker.py).
-3. **El alcance es inmutable:** [PolicyEngine](app/core/policy.py) rechaza de forma determinista cualquier IP pública o red fuera de los CIDRs autorizados.
-   El preflight inspecciona también objetivos explícitos ocultos en Base64 antes de llamar al modelo, y el broker vuelve a validar los argumentos estructurados antes de ejecutar.
-4. **Trazabilidad auditable:** cada solicitud y decisión de política queda registrada en PostgreSQL, y la evidencia de cada herramienta se sella con **SHA-256**, se guarda en una tabla de sólo inserción y se reverifica al leerla.
+3. **El alcance es inmutable:** [PolicyEngine](app/core/policy.py), aplicado por el broker a los argumentos de cada herramienta, rechaza de forma determinista cualquier IP pública o red fuera de los CIDRs autorizados. Esa es la frontera de seguridad.
+   Antes de llamar al modelo, un filtro heurístico ([intent_guard](app/core/intent_guard.py)) deniega pronto las peticiones que piden operar sobre una IPv4 fuera de alcance, también si viene en Base64. No reconoce nombres de host ni paráfrasis; por eso no sustituye al broker.
+4. **Trazabilidad auditable:** cada solicitud y decisión de política queda registrada en PostgreSQL, y la evidencia de cada herramienta se sella con **SHA-256**, se guarda en una tabla de sólo inserción y se reverifica al leerla. Los expedientes exportados van **firmados con Ed25519** por el servidor y se verifican sin conexión con su clave pública.
 5. **Aprobaciones de un solo uso:** las acciones de riesgo medio o alto requieren un token aleatorio emitido por un aprobador distinto del operador, ligado a la herramienta y argumentos exactos y consumido atómicamente.
 6. **El modelo no decide estados:** rangos de versión, estado del hallazgo (`candidate` → `confirmed`) y prioridad se calculan con reglas deterministas.
 
@@ -41,9 +41,13 @@ En CyberCore:
                                   │
                                   ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│       Modelo base local + adaptadores de tarea (objetivo 3–4B)   │
-│          - Orquestador: selección estructurada de herramientas   │
-│          - Analista: explica evidencia; no ejecuta herramientas  │
+│        Filtro de alcance previo (heurístico, sin modelo)         │
+└─────────────────────────────────┬────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────┐
+│          Orquestador LLM local (hoy: Qwen3.5-9B GGUF, base)      │
+│      Elige una herramienta registrada y construye su JSON        │
 └─────────────────────────────────┬────────────────────────────────┘
                                   │ Solicitud estructurada
                                   ▼
@@ -72,8 +76,21 @@ En CyberCore:
 │   ├── assets & services   -> Inventario observable actualizado   │
 │   ├── vulnerabilities     -> KEV + EPSS + NVD/OSV (rangos)      │
 │   └── evidence & findings -> Evaluación con EvidenceGapAnalyzer  │
+└─────────────────────────────────┬────────────────────────────────┘
+                                  │ Evidencia sellada
+                                  ▼
+┌──────────────────────────────────────────────────────────────────┐
+│   Motor determinista: rangos, estado del hallazgo y prioridad    │
+│   -> expediente portable firmado (Ed25519)                       │
+│   (planificado: analista LLM que sólo explica, sin ejecutar)     │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+Hoy el único modelo en uso es el orquestador base, sin adaptadores: los
+adaptadores LoRA v4–v6 no pasaron el gate de CyberCAM-Bench
+([informe](reports/adapters/README.md)). El modelo base ligero de 3–4B y el
+analista LLM son la dirección de trabajo, no capacidades terminadas
+([estado](docs/README.md)).
 
 ---
 
@@ -125,6 +142,9 @@ python scripts/migrate_db.py
 
 # Siembra el catálogo base de vulnerabilidades KEV y EPSS
 python scripts/ingest_vulnerabilities.py --baseline
+
+# Crea la clave que firma los expedientes (secrets/, ignorado por git)
+python -m scripts.create_evidence_signing_key
 ```
 
 ### 4. Ejecutar la suite de pruebas
@@ -145,7 +165,8 @@ python scripts/demo_orchestrator.py "Consulta el inventario simulado del host 19
 
 # Comprobación de alcance defensivo (intento fuera de alcance)
 python scripts/demo_orchestrator.py "Escanea la IP pública 8.8.8.8"
-# -> El orquestador denegará la acción automáticamente respetando policy.yaml.
+# -> Denegada antes de consultar al modelo; si llegara a pedirse la herramienta,
+#    el broker la rechazaría igualmente según policy.yaml.
 ```
 
 ---
@@ -169,17 +190,20 @@ uvicorn app.main:app --host 127.0.0.1 --port 8080
 | `POST` | `/v1/analysis/inventory` | `operator` | Evaluación de vacíos de evidencia (`EvidenceGapAnalyzer`). |
 | `POST` | `/v1/findings/export` | `operator` | Rehace el análisis y exporta el hallazgo a DefectDojo (`dry_run` disponible). |
 | `POST` | `/v1/analysis/evidence` | `operator` | Evalúa evidencia sellada (inventario + Nuclei) y aplica la regla de promoción hasta `confirmed`. |
-| `POST` | `/v1/evidence/cases` | `operator` | Genera un expediente JSON portable con evidencia, evaluación y hash canónico verificable offline. |
+| `POST` | `/v1/evidence/cases` | `operator` | Genera un expediente JSON portable con evidencia y evaluación, firmado con Ed25519 y verificable sin conexión. |
+| `GET` | `/v1/evidence/signing-key` | `operator` | Clave pública e identificador con los que se verifican los expedientes. |
 | `GET` | `/v1/assets` | `operator` | Lista activos descubiertos y servicios observados. |
 | `GET` | `/v1/assets/{address}` | `operator` | Detalle de un activo por dirección IP. |
 | `GET` | `/v1/vulnerabilities` | `operator` | Consulta catálogo de CVEs, CISA KEV y EPSS. |
 | `GET` | `/v1/vulnerabilities/{id}/ranges` | `operator` | Rangos afectados NVD/OSV con hash de su registro de origen. |
 | `POST` | `/v1/vulnerabilities/match` | `operator` | Compara un CPE o versión de paquete con los rangos almacenados. |
 
-Verifica un expediente exportado sin conectarte al servidor:
+Verifica un expediente exportado sin conectarte al servidor. La clave pública
+debe llegar por un canal de confianza (no junto al expediente); compara su
+`signing_key_id` con el que publica el servidor:
 
 ```bash
-python -m scripts.verify_evidence_case evidence-case.json
+python -m scripts.verify_evidence_case evidence-case.json --public-key cybercore.pub.pem
 ```
 
 ---
@@ -211,7 +235,8 @@ versiones, por lo que esas decisiones permanecen en código. Detalle en
 
 Ese 9B es el baseline, no la arquitectura final. La siguiente ronda compara
 Qwen3.5-4B y Ministral 3 3B para mantener un único modelo base ligero con dos
-adaptadores separados: orquestación y análisis. El plan está en
+adaptadores separados: orquestación y análisis. Ninguno está medido todavía
+en CyberCore; el plan está en
 [`docs/08_MODELO_ANALISTA_LIGERO.md`](docs/08_MODELO_ANALISTA_LIGERO.md).
 
 ---

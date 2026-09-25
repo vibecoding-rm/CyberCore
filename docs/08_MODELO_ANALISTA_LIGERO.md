@@ -12,6 +12,11 @@ El producto debe trabajar sin Internet durante el análisis normal, ejecutarse
 en 16 GB de RAM, limitarse a activos autorizados, explicar evidencia en español,
 abstenerse cuando falten pruebas y dejar las decisiones críticas a código.
 
+El 9B Q4_K_M actual (5,7 GB) ya cabe en 16 GB. El motivo para probar 3–4B es
+la latencia en CPU: el 9B tarda unos 23 s por caso de CyberCAM-Bench en el
+equipo de desarrollo (`reports/benchmarks/2026-09-25-qwen3.5-9b-q4km-development-m0-cpu.json`).
+Un modelo menor sólo se adopta si M0 demuestra que no pierde seguridad.
+
 No vamos a preentrenar un modelo desde cero. Sería mucho más costoso y volvería
 a enseñarle lenguaje y conocimiento general que ya existe. Especializaremos un
 modelo abierto de 3–4B parámetros con LoRA y datos propios revisados.
