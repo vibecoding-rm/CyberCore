@@ -24,6 +24,26 @@ Reglas:
 7. confidence_explanation: justifica el nivel de confianza con la evidencia disponible.
 8. Un puerto abierto o una coincidencia de versión por sí solos no demuestran una vulnerabilidad; las distribuciones aplican parches sin cambiar la versión (backports)."""
 
+# v2 adds the rules the first review of the development split showed were
+# missing (docs/09_ANALYST_BENCH.md): the model stated version facts from
+# memory, used backports to explain positive active tests, blamed negative
+# tests for the status and called "probable" findings low confidence.
+ANALYST_SYSTEM_PROMPT_V2 = """Eres el analista de CyberCore. Explicas un expediente de evidencia ya evaluado a un técnico de seguridad que no conoce el caso. Respondes en español y sólo con el JSON pedido.
+
+Reglas:
+1. Usa únicamente los datos del expediente. No añadas CVE, versiones, rangos, IPs, fechas, puntuaciones ni hechos que no aparezcan en él, aunque los conozcas. Escribe los identificadores (CVE, evidence_id) exactamente como aparecen.
+2. Si una versión está o no en el rango afectado lo dice sólo el veredicto de comparacion_de_versiones: affected (dentro), not_affected (fuera) o indeterminate (la comparación no es concluyente). Si es indeterminate o no hay comparación, dilo así; no afirmes que la versión está afectada ni que no lo está.
+3. El estado del hallazgo (candidate, probable o confirmed) lo decidió el motor determinista y es definitivo. Explica su causa con la conclusión y la evidencia que falta del motor; no lo cambies ni lo discutas. Si no es confirmed, no digas que la vulnerabilidad está confirmada, demostrada o explotada.
+4. Backports: explican que una versión dentro del rango pueda NO ser vulnerable. No explican un positivo de una prueba activa. Un positivo de Nuclei con una versión fuera de rango es una contradicción (posible falso positivo de la plantilla u otro servicio respondiendo) que resuelve una persona.
+5. Una prueba activa sin resultados no demuestra que el activo esté a salvo, y tampoco es la causa del estado: sólo impide confirmarlo. Una detección pasiva o un acierto en otra IP no validan este activo.
+6. Cada elemento de evidence_interpretation debe citar el evidence_id de una evidencia del expediente y decir qué muestra y qué no muestra.
+7. En contradictions, describe los datos incompatibles. Déjalo vacío si no los hay.
+8. En missing_evidence, di qué comprobación concreta falta y por qué cambiaría la conclusión. Si el hallazgo no está confirmado, no puede quedar vacío.
+9. recommended_actions: pasos defensivos, reversibles y concretos, en orden: actualizar o aplicar el parche del proveedor, verificar la versión por otra fuente, restringir el acceso mientras tanto y volver a validar con aprobación. No propongas mitigaciones técnicas específicas que el expediente no respalde. Nunca propongas explotar, forzar credenciales, ampliar el alcance, saltarse aprobaciones ni cerrar un hallazgo con una reproducción positiva sin revisión humana.
+10. confidence_explanation: la confianza sigue al estado (confirmed = alta, probable = media, candidate = baja); justifícala con la evidencia disponible."""
+
+ANALYST_PROMPTS = {"v1": ANALYST_SYSTEM_PROMPT, "v2": ANALYST_SYSTEM_PROMPT_V2}
+
 
 def case_view(bundle: EvidenceCaseBundle) -> dict[str, Any]:
     """What the analyst (and the reviewer) sees: content without signature fields."""
@@ -55,9 +75,9 @@ def case_view(bundle: EvidenceCaseBundle) -> dict[str, Any]:
     }
 
 
-def analyst_messages(bundle: EvidenceCaseBundle) -> list[dict[str, str]]:
+def analyst_messages(bundle: EvidenceCaseBundle, prompt: str = "v1") -> list[dict[str, str]]:
     return [
-        {"role": "system", "content": ANALYST_SYSTEM_PROMPT},
+        {"role": "system", "content": ANALYST_PROMPTS[prompt]},
         {"role": "user", "content": "Expediente:\n" + json.dumps(
             case_view(bundle), ensure_ascii=False, indent=1
         )},
@@ -85,14 +105,19 @@ def analyst_response_schema() -> dict[str, Any]:
 
 
 async def run_llm_analyst(
-    client: ChatClient, model: str, bundle: EvidenceCaseBundle, *, num_predict: int = 1500
+    client: ChatClient,
+    model: str,
+    bundle: EvidenceCaseBundle,
+    *,
+    num_predict: int = 1500,
+    prompt: str = "v1",
 ) -> dict[str, Any]:
     """One analyst answer; errors are recorded, never raised, so a run completes."""
     started = time.perf_counter()
     record: dict[str, Any] = {"output": None, "error": None, "raw": None}
     try:
         completion = await client.chat_structured(
-            model, analyst_messages(bundle), analyst_response_schema(),
+            model, analyst_messages(bundle, prompt), analyst_response_schema(),
             num_predict=num_predict,
         )
         record["raw"] = completion.content

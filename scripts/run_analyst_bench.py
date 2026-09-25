@@ -4,6 +4,7 @@
     python -m scripts.run_analyst_bench --split development \
         --llm C1=qwen3.5:9b --base-url http://localhost:8081 --run-id 2026-09-25-dev-9b
 
+    # a prompt version per system: C2=qwen3.5:9b@v2 (default v1)
     # add another system to an existing run (same cases, same blinding salt)
     python -m scripts.run_analyst_bench --add-to reports/analyst/runs/<run>.json \
         --llm C2=qwen3.5:4b --base-url ...
@@ -13,8 +14,9 @@ they fail, so the report shows why. After fixing a false positive in the
 gate, re-check a run without calling any model:
 
     python -m scripts.run_analyst_bench --regate reports/analyst/runs/<run>.json
- Holdout runs need --reason and are
-appended to reports/analyst/HOLDOUT_LOG.md before any answer is produced.
+
+Holdout runs need --reason and are appended to reports/analyst/HOLDOUT_LOG.md
+before any answer is produced.
 """
 
 from __future__ import annotations
@@ -32,7 +34,7 @@ from urllib.parse import urlsplit
 
 from app.analyst.bench import AnalystRun, AnswerRecord, CaseResult, SystemInfo
 from app.analyst.contract import AnalystOutput, analyst_gate_violations
-from app.analyst.prompt import case_view, run_llm_analyst
+from app.analyst.prompt import ANALYST_PROMPTS, case_view, run_llm_analyst
 from app.analyst.template import template_analysis
 from app.api.models import EvidenceCaseBundle
 from app.llm.llamacpp import LlamaCppChatClient
@@ -60,7 +62,9 @@ def gated(record: dict, bundle: EvidenceCaseBundle) -> AnswerRecord:
     return answer
 
 
-async def answer_llm(system: str, model: str, cases: list[dict], args) -> dict[str, AnswerRecord]:
+async def answer_llm(
+    system: str, model: str, prompt: str, cases: list[dict], args
+) -> dict[str, AnswerRecord]:
     settings = get_settings()
     client = LlamaCppChatClient(
         args.base_url or settings.llamacpp_base_url,
@@ -73,7 +77,9 @@ async def answer_llm(system: str, model: str, cases: list[dict], args) -> dict[s
     async def one(case: dict) -> None:
         bundle = EvidenceCaseBundle.model_validate(case["bundle"])
         async with semaphore:
-            record = await run_llm_analyst(client, model, bundle, num_predict=args.num_predict)
+            record = await run_llm_analyst(
+                client, model, bundle, num_predict=args.num_predict, prompt=prompt
+            )
         answers[case["case_id"]] = gated(record, bundle)
         done = len(answers)
         status = "error" if record["error"] else f"{len(answers[case['case_id']].violations)} violaciones"
@@ -127,13 +133,18 @@ def regate(path: Path) -> int:
     return 0
 
 
-def parse_llm(values: list[str]) -> dict[str, str]:
+def parse_llm(values: list[str]) -> dict[str, tuple[str, str]]:
+    """C<n>=<model>[@<prompt version>], e.g. C2=qwen3.5:9b@v2 (default prompt v1)."""
     systems = {}
     for value in values:
-        name, _, model = value.partition("=")
+        name, _, spec = value.partition("=")
+        model, _, prompt = spec.partition("@")
+        prompt = prompt or "v1"
         if not name.startswith("C") or not name[1:].isdigit() or name == "C0" or not model:
-            raise SystemExit(f"--llm {value!r}: usa C<n>=<modelo>, con n >= 1")
-        systems[name] = model
+            raise SystemExit(f"--llm {value!r}: usa C<n>=<modelo>[@<prompt>], con n >= 1")
+        if prompt not in ANALYST_PROMPTS:
+            raise SystemExit(f"--llm {value!r}: prompt desconocido; opciones {sorted(ANALYST_PROMPTS)}")
+        systems[name] = (model, prompt)
     return systems
 
 
@@ -200,11 +211,11 @@ def main() -> int:
     new_answers: dict[str, dict[str, AnswerRecord]] = {}
     if not args.add_to:
         new_answers["C0"] = template_answers(cases)
-    for system, model in llm_systems.items():
-        new_answers[system] = asyncio.run(answer_llm(system, model, cases, args))
+    for system, (model, prompt) in llm_systems.items():
+        new_answers[system] = asyncio.run(answer_llm(system, model, prompt, cases, args))
         endpoint = urlsplit(args.base_url or get_settings().llamacpp_base_url).hostname
-        run.systems[system] = SystemInfo(kind="llm", model=model, endpoint=endpoint,
-                                         hardware=args.hardware)
+        run.systems[system] = SystemInfo(kind="llm", model=model, prompt=prompt,
+                                         endpoint=endpoint, hardware=args.hardware)
     for result in run.results:
         for system, answers in new_answers.items():
             result.answers[system] = answers[result.case_id]

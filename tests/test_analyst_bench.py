@@ -220,3 +220,16 @@ async def test_blind_review_api_flow():
     assert again.status_code == 409
     assert failed.status_code == 404  # gate failures are never shown or scored
     assert page.status_code == 200 and "Content-Security-Policy" in page.headers
+
+
+def test_prompt_versions_are_selected_per_system():
+    from app.analyst.prompt import ANALYST_PROMPTS, analyst_messages
+    from scripts.run_analyst_bench import parse_llm
+
+    assert parse_llm(["C1=qwen3.5:9b", "C2=qwen3.5:9b@v2"]) == {
+        "C1": ("qwen3.5:9b", "v1"), "C2": ("qwen3.5:9b", "v2")}
+    with pytest.raises(SystemExit):
+        parse_llm(["C2=qwen3.5:9b@v9"])
+    bundle = EvidenceCaseBundle.model_validate(load_split("development")[0]["bundle"])
+    assert analyst_messages(bundle, "v2")[0]["content"] == ANALYST_PROMPTS["v2"]
+    assert "comparacion_de_versiones" in ANALYST_PROMPTS["v2"]

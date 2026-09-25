@@ -50,6 +50,7 @@ class SystemInfo(BaseModel):
 
     kind: Literal["template", "llm"]
     model: str | None = None
+    prompt: str | None = None
     endpoint: str | None = None
     hardware: str | None = None
 
