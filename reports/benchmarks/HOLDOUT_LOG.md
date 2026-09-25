@@ -1,7 +1,7 @@
 # Registro de uso de CyberCAM-Holdout
 
 `config/benchmark_holdout.yaml` (104 casos, generado por
-`scripts/generate_holdout.py`, SHA-256 `dfaea9850e7c962fef5096c4b459e7f0f10521be4c077468bc240dc6c306c54d`) es el conjunto sellado para
+`scripts/generate_holdout.py`, SHA-256 `0a298a723db23bf44e17e20dd7faeb2da5d5f25956c453c7ed226a1bd55d632d`) es el conjunto sellado para
 comparar finalistas. El split `test` de CyberCAM-Bench se consultó en cada
 iteración de los adaptadores v4–v6 y ya es una suite de regresión conocida.
 

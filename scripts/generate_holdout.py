@@ -338,6 +338,7 @@ def main() -> None:
     OUTPUT.write_text(
         header + yaml.safe_dump(suite, sort_keys=False, allow_unicode=True, width=120),
         encoding="utf-8",
+        newline="\n",  # stable SHA-256 on every OS
     )
     counts: dict[str, int] = {}
     for item in suite["cases"]:
