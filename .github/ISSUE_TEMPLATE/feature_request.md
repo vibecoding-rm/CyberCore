@@ -1,19 +1,22 @@
 ---
-name: Feature Request
-about: Suggest an idea or defensive capability for CyberCore
+name: Propuesta de mejora
+about: Propón una capacidad defensiva alineada con CyberCore
 title: '[FEAT] '
 labels: enhancement
 assignees: ''
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Problema verificable
 
-**Describe the Solution You'd Like**
-A clear and concise description of what you want to happen.
+## Resultado deseado
 
-**Defensive Security & Scope Considerations**
-Explain how this feature adheres to CyberCore's defensive principles (scope validation, auditability, fail-closed policy, no arbitrary execution).
+## Evidencia de aceptación
 
-**Additional Context**
-Add any other context, references, or mockups about the feature request here.
+Explica cómo sabremos que funciona y qué benchmark o prueba lo demuestra.
+
+## Seguridad y alcance
+
+Describe validación de alcance, auditabilidad, política fail-closed,
+aprobaciones y cómo se evita ejecución arbitraria.
+
+## Contexto adicional

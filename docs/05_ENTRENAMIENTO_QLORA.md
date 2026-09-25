@@ -1,20 +1,22 @@
-# Entrenamiento posterior con QLoRA
+# Entrenamiento posterior con LoRA especializado
 
 ## Cuándo hacerlo
 
 No entrenes antes de que el sistema funcione con prompts, herramientas y evaluación. Primero necesitas ejemplos correctos producidos o revisados por humanos.
 
-## Qué aprenderá el adaptador
+## Qué aprenderá el adaptador del orquestador
 
-- Elegir la herramienta adecuada.
-- Interpretar la salida normalizada.
-- Negarse a afirmar más de lo demostrado.
-- Pedir la comprobación faltante.
-- Distinguir afectado, no afectado y desconocido.
-- Priorizar con contexto.
-- Redactar findings con evidencia.
+- Elegir una herramienta registrada cuando corresponda.
+- Construir el JSON exacto del contrato de producción.
+- Abstenerse cuando no necesita una herramienta.
+- Respetar el lenguaje de aprobación y alcance que las guardas hacen cumplir.
 
-## Qué no aprenderá
+El futuro adaptador **analyst** interpreta evidencia y redacta recomendaciones
+con otro esquema, dataset y benchmark. Ambos pueden compartir un modelo base,
+pero nunca pesos LoRA ni ejemplos de protocolos distintos. Véase
+`docs/08_MODELO_ANALISTA_LIGERO.md`.
+
+## Qué no aprenderá ningún adaptador
 
 - Listas de CVE actuales.
 - Valores EPSS.
@@ -112,18 +114,19 @@ política y del benchmark, los `run_id` de origen y el recuento de descartes.
 
 Este equipo no tiene GPU CUDA; el entrenamiento se lanza en
 [Modal](https://modal.com) (30 $/mes de crédito incluido; exige tarjeta para
-usar GPU). Modelo base: `Qwen/Qwen3.5-9B` (Apache-2.0; el GGUF de producción es
-su cuantización Q4_K_M).
+usar GPU). El entrenador admite `qwen3.5-9b` como baseline compatible y
+`qwen3.5-4b` como primer candidato ligero. Ambos son Apache-2.0.
 
 **LoRA de 16 bits, no QLoRA**: la guía de Unsloth para Qwen3.5 desaconseja
-entrenar en 4 bits por las diferencias de cuantización. El 9B necesita ~22 GB,
-así que se usa una L40S (48 GB); `CYBERCORE_MODAL_GPU=L4` es la alternativa
-ajustada. Requiere `transformers` v5 (lo instala la imagen).
+entrenar en 4 bits por las diferencias de cuantización. Se entrena en 16 bits y
+se cuantiza el artefacto aceptado después. El 9B necesita ~22 GB, por lo que usa
+una L40S (48 GB); el experimento 4B debe probar
+`CYBERCORE_MODAL_GPU=L4`. Requiere `transformers` v5.
 
 ```bash
 pip install modal && python -m modal setup          # una vez
-PYTHONUTF8=1 python -m modal run training/modal_train.py --action smoke
-PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --dataset v1 --adapter v1
+PYTHONUTF8=1 python -m modal run training/modal_train.py --action smoke --base-model qwen3.5-4b
+PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --dataset v4 --adapter qwen4b-orchestrator-v1 --base-model qwen3.5-4b --epochs 1
 ```
 
 - `smoke` entrena 2 pasos con un ejemplo de juguete: valida imagen, GPU,
@@ -133,6 +136,9 @@ PYTHONUTF8=1 python -m modal run training/modal_train.py --action train --datase
   `cybercore-training`, lo vuelve a verificar en el contenedor, entrena y
   descarga el adaptador a `adapters/<nombre>/` con `training_manifest.json`
   (`status: pending_evaluation`).
+- `--base-model` sólo acepta aliases revisados. Esto impide cambiar
+  silenciosamente de arquitectura y deja el identificador exacto en el
+  manifiesto.
 - Los prompts se renderizan con la misma plantilla de chat que sirve
   llama.cpp en producción (`enable_thinking=False`) y la pérdida se calcula sólo
   sobre la respuesta JSON.
@@ -165,6 +171,55 @@ prioridad nunca compensa una regresión de seguridad.
 Sólo un adaptador aceptado se convierte y se despliega (paso 9); CyberCAM-Bench
 usa su propio prompt, así que mide que el ajuste no rompa la política general,
 no el formato del orquestador.
+
+## Lección de v4-v6: separar roles, no mezclar protocolos
+
+Los experimentos v5 y v6 mezclaron en un solo LoRA dos tareas con contratos de
+salida distintos:
+
+- orquestación de producción: `action_type`, `tool`, `arguments`;
+- clasificación de CyberCAM-Bench: `outcome`, `finding_status`, `affected`.
+
+v5 añadió 78 ejemplos de repaso a 234 trazas del orquestador. v6 elevó el
+repaso a 194 filas, pero sólo había 78 ejemplos únicos: 116 filas eran copias
+exactas. El resultado cayó de 35/44 (v4) a 34/44 (v5) y 31/44 (v6). Repetir una
+respuesta incrementa su frecuencia, pero no aporta cobertura ni enseña los
+casos que el modelo base falló; además, el constructor anterior sólo conservaba
+respuestas que la base ya había acertado.
+
+Decisión de arquitectura:
+
+1. El adaptador del orquestador se entrena sólo con el protocolo de producción.
+2. Rangos, alcance, aprobaciones y estados siguen siendo decisiones
+   deterministas. El LLM propone o explica; no es la autoridad.
+3. Si se necesita un analista generativo, usa el modelo base o un segundo
+   adaptador con dataset, esquema, evaluación y endpoint propios. No lo mezcles
+   con el adaptador del orquestador.
+4. CyberCAM-Bench es una puerta de no-regresión para el orquestador, no material
+   de repaso del mismo LoRA.
+
+Antes de entrenar:
+
+```bash
+python -m scripts.audit_training_dataset data/training/v4
+```
+
+El entrenamiento rechaza por defecto más de 5 % de duplicados exactos, mezcla
+de protocolos y prompts idénticos entre splits. Las excepciones existen para
+experimentos deliberados, pero deben quedar registradas en el manifiesto y no
+se promocionan sin una evaluación nueva.
+
+### Disciplina experimental
+
+- Cambia una sola variable por ejecución (dataset, épocas, tasa o rango LoRA).
+- Usa `development` para escoger hiperparámetros. Tras consultar repetidamente
+  los 44 casos de `test` durante v4-v6, ese conjunto pasa a ser una suite de
+  regresión conocida; crea un holdout sellado nuevo antes de afirmar mejora.
+- Reporta promedio y peor caso de al menos tres semillas para candidatos
+  finalistas. Con 44 casos, una diferencia de tres aciertos no identifica por sí
+  sola la causa.
+- Conserva la base sin adaptar como control y promociona sólo si el adaptador
+  mejora su tarea objetivo sin ninguna regresión de seguridad o evidencia.
 
 ## Pipeline
 

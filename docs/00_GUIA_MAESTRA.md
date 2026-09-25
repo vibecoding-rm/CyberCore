@@ -19,11 +19,16 @@ La evidencia decide; el modelo explica y organiza.
 
 ### Orquestador
 
-Candidato inicial: Qwen 3.5 9B cuantizado. Su trabajo es entender la solicitud, escoger herramientas y construir JSON válido. No decide por sí solo que existe una vulnerabilidad.
+El 9B actual es el baseline. El objetivo es un modelo base de 3–4B con un
+adaptador exclusivo de orquestación. Escoge herramientas y construye JSON
+válido, pero no decide que existe una vulnerabilidad.
 
 ### Analista especializado
 
-Candidato inicial: Foundation-Sec-8B-Reasoning cuantizado. Recibe evidencia ya recolectada, advisories y contexto del activo. En el MVP es sólo de análisis: no tiene permisos para ejecutar herramientas.
+Usa un segundo adaptador sobre el mismo modelo base ligero. Recibe evidencia,
+advisories y contexto del activo; no ejecuta herramientas ni decide estados.
+Foundation-Sec-8B-Reasoning queda como referencia, no como candidato inicial de
+producción, por tamaño, idioma declarado y revisión de licencia pendiente.
 
 ### Especialista de código
 
@@ -131,8 +136,13 @@ Sólo después de disponer de buenas trazas:
 - Construir pares entrada/salida con decisiones correctas.
 - Eliminar secretos y datos personales.
 - Reservar un conjunto de evaluación sin contaminar.
-- Entrenar comportamiento con QLoRA en Colab.
+- Entrenar comportamiento con LoRA eficiente en una GPU temporal.
 - Mantener CVE, versiones y feeds fuera de los pesos.
+- Entrenar orquestación y análisis en adaptadores distintos.
+- Comparar primero Qwen3.5-4B y Ministral 3 3B con el 9B como control.
+
+El contrato, dataset, gates y roadmap están en
+`docs/08_MODELO_ANALISTA_LIGERO.md`.
 
 ## 5. Hardware de 16 GB
 

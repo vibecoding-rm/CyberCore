@@ -24,6 +24,7 @@ En CyberCore:
 1. **La evidencia decide; el modelo explica y organiza.**
 2. **Ningún LLM tiene acceso directo a una shell.** Toda interacción ocurre mediante contratos tipados y estrictamente validados en [ToolBroker](app/core/tool_broker.py).
 3. **El alcance es inmutable:** [PolicyEngine](app/core/policy.py) rechaza de forma determinista cualquier IP pública o red fuera de los CIDRs autorizados.
+   El preflight inspecciona también objetivos explícitos ocultos en Base64 antes de llamar al modelo, y el broker vuelve a validar los argumentos estructurados antes de ejecutar.
 4. **Trazabilidad auditable:** cada solicitud y decisión de política queda registrada en PostgreSQL, y la evidencia de cada herramienta se sella con **SHA-256**, se guarda en una tabla de sólo inserción y se reverifica al leerla.
 5. **Aprobaciones de un solo uso:** las acciones de riesgo medio o alto requieren un token aleatorio emitido por un aprobador distinto del operador, ligado a la herramienta y argumentos exactos y consumido atómicamente.
 6. **El modelo no decide estados:** rangos de versión, estado del hallazgo (`candidate` → `confirmed`) y prioridad se calculan con reglas deterministas.
@@ -40,10 +41,9 @@ En CyberCore:
                                   │
                                   ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│            CyberCore Autonomous Orchestrator (ReAct)             │
-│          (Qwen 3.5 9B GGUF / Modelos locales con llama.cpp)      │
-│               - Planificación paso a paso estructurada           │
-│               - Selección de herramientas autorizadas            │
+│       Modelo base local + adaptadores de tarea (objetivo 3–4B)   │
+│          - Orquestador: selección estructurada de herramientas   │
+│          - Analista: explica evidencia; no ejecuta herramientas  │
 └─────────────────────────────────┬────────────────────────────────┘
                                   │ Solicitud estructurada
                                   ▼
@@ -169,17 +169,25 @@ uvicorn app.main:app --host 127.0.0.1 --port 8080
 | `POST` | `/v1/analysis/inventory` | `operator` | Evaluación de vacíos de evidencia (`EvidenceGapAnalyzer`). |
 | `POST` | `/v1/findings/export` | `operator` | Rehace el análisis y exporta el hallazgo a DefectDojo (`dry_run` disponible). |
 | `POST` | `/v1/analysis/evidence` | `operator` | Evalúa evidencia sellada (inventario + Nuclei) y aplica la regla de promoción hasta `confirmed`. |
+| `POST` | `/v1/evidence/cases` | `operator` | Genera un expediente JSON portable con evidencia, evaluación y hash canónico verificable offline. |
 | `GET` | `/v1/assets` | `operator` | Lista activos descubiertos y servicios observados. |
 | `GET` | `/v1/assets/{address}` | `operator` | Detalle de un activo por dirección IP. |
 | `GET` | `/v1/vulnerabilities` | `operator` | Consulta catálogo de CVEs, CISA KEV y EPSS. |
 | `GET` | `/v1/vulnerabilities/{id}/ranges` | `operator` | Rangos afectados NVD/OSV con hash de su registro de origen. |
 | `POST` | `/v1/vulnerabilities/match` | `operator` | Compara un CPE o versión de paquete con los rangos almacenados. |
 
+Verifica un expediente exportado sin conectarte al servidor:
+
+```bash
+python -m scripts.verify_evidence_case evidence-case.json
+```
+
 ---
 
 ## 📚 Documentación Técnica Detallada
 
-La carpeta [`docs/`](docs/) contiene las especificaciones maestras de diseño:
+La [portada de documentación](docs/README.md) distingue capacidades
+implementadas, experimentales y planificadas. Especificaciones principales:
 - [`docs/00_GUIA_MAESTRA.md`](docs/00_GUIA_MAESTRA.md): Roadmap por fases y principios de construcción.
 - [`docs/01_ARQUITECTURA.md`](docs/01_ARQUITECTURA.md): Separación de responsabilidades y modelos de amenaza.
 - [`docs/02_MODELOS_Y_BENCHMARK.md`](docs/02_MODELOS_Y_BENCHMARK.md): Evaluación empírica de LLMs locales en 16 GB.
@@ -188,6 +196,7 @@ La carpeta [`docs/`](docs/) contiene las especificaciones maestras de diseño:
 - [`docs/05_ENTRENAMIENTO_QLORA.md`](docs/05_ENTRENAMIENTO_QLORA.md): Plan de ajuste fino con trazas reales (fase 6).
 - [`docs/06_REFERENCIAS.md`](docs/06_REFERENCIAS.md): Fuentes y referencias externas.
 - [`docs/07_FASE_0_CONTROLES.md`](docs/07_FASE_0_CONTROLES.md): Matriz de controles defensivos implementados.
+- [`docs/08_MODELO_ANALISTA_LIGERO.md`](docs/08_MODELO_ANALISTA_LIGERO.md): Producto objetivo, modelos 3–4B, dataset, gates y roadmap del analista local.
 
 ---
 
@@ -199,6 +208,11 @@ sistema; v1 con 150) evaluó Qwen3.5-9B Q4_K_M en llama.cpp: **85,3 % en el spli
 (alcance, aprobaciones, selección de herramienta). No es fiable como analista de
 versiones, por lo que esas decisiones permanecen en código. Detalle en
 [`reports/benchmarks/`](reports/benchmarks/README.md).
+
+Ese 9B es el baseline, no la arquitectura final. La siguiente ronda compara
+Qwen3.5-4B y Ministral 3 3B para mantener un único modelo base ligero con dos
+adaptadores separados: orquestación y análisis. El plan está en
+[`docs/08_MODELO_ANALISTA_LIGERO.md`](docs/08_MODELO_ANALISTA_LIGERO.md).
 
 ---
 

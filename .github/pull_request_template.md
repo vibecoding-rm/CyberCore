@@ -1,18 +1,25 @@
-## Description
-Briefly describe the changes introduced by this pull request.
+## Cambio
 
-## Related Issues
-Fixes #(issue number)
+Describe el problema, la solución y qué queda explícitamente fuera.
 
-## Type of Change
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Architectural / Governance improvement
-- [ ] Documentation update
+## Issue relacionado
 
-## Checklist
-- [ ] My code follows the defensive principles and style guidelines of CyberCore.
-- [ ] I have verified that NO secrets, private keys, or credentials are committed.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] All new and existing tests pass locally (`pytest`).
-- [ ] Relevant documentation has been updated.
+Closes #
+
+## Tipo
+
+- [ ] Corrección
+- [ ] Nueva capacidad
+- [ ] Arquitectura o gobernanza
+- [ ] Documentación
+- [ ] Modelo, dataset, prompt o evaluación
+
+## Verificación
+
+- [ ] No contiene secretos, credenciales, IP internas ni evidencia real.
+- [ ] Incluye pruebas y `pytest` pasa.
+- [ ] `ruff check app scripts training tests` pasa.
+- [ ] La documentación y el estado implementado/experimental están actualizados.
+- [ ] Un cambio de modelo registra baseline, hashes, splits, semillas, hardware, métricas por categoría y SHA-256 del artefacto.
+- [ ] Un cambio de datos pasa la auditoría y no copia respuestas del holdout.
+- [ ] El promedio no oculta regresiones de alcance, aprobación, contradicción o estado.

@@ -1,16 +1,21 @@
 # Modelos y CyberCAM-Bench
 
-## Candidatos iniciales
+## Candidatos y estrategia actual
 
 | Modelo | Papel a evaluar | Restricción inicial |
 |---|---|---|
-| Qwen 3.5 9B Q4 | Orquestación y JSON | Herramientas sólo a través del broker |
-| Foundation-Sec-8B-Reasoning Q4 | Análisis de seguridad | Sin ejecución |
-| Ministral 3 8B Q4 | Challenger general | Sin privilegios hasta aprobar benchmark |
+| Qwen 3.5 9B Q4 | Baseline ya medido | No es el objetivo de tamaño |
+| Qwen 3.5 4B Q4 | Primer candidato para base única | Debe igualar los gates críticos del 9B |
+| Ministral 3 3B Q4 | Challenger ligero | Verificar llama.cpp, JSON y español |
+| Phi-4-mini 3.8B Q4 | Challenger secundario | Evaluar alucinación de funciones |
+| Foundation-Sec-8B-Reasoning Q4 | Referencia de análisis | Inglés; revisar `NOTICE.md`; sin ejecución |
 | VulnLLM-R 7B | Análisis de código futuro | Fuera del MVP de red |
 | GPT-OSS-20B | Prueba futura con 32 GB | No recomendado en 16 GB totales |
 
 Los nombres, tamaños y disponibilidad pueden cambiar. Verifica siempre las tarjetas oficiales antes de descargar.
+La decisión no se toma con benchmarks generales: se prueba el modelo base, cada
+adaptador por separado y el GGUF desplegable. Véase
+`docs/08_MODELO_ANALISTA_LIGERO.md`.
 
 ## Métricas
 

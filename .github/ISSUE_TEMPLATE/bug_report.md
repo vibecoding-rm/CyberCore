@@ -1,28 +1,32 @@
 ---
-name: Bug Report
-about: Create a report to help us improve CyberCore
+name: Reporte de error
+about: Informa un comportamiento reproducible sin incluir datos sensibles
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
-**Describe the Bug**
-A clear and concise description of what the bug is.
+## Problema
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Call tool / endpoint '...'
-2. With arguments '...'
-3. See error
+Describe qué ocurrió y por qué es incorrecto.
 
-**Expected Behavior**
-A clear and concise description of what you expected to happen.
+## Reproducción
 
-**Environment (please complete the following information):**
- - OS: [e.g. Ubuntu 22.04, Windows 11]
- - Python version: [e.g. 3.12]
- - Tool Mode: [e.g. mock, local]
- - Model: [e.g. qwen3.5:9b]
+1. Herramienta o endpoint:
+2. Argumentos sanitizados:
+3. Resultado observado:
 
-**Logs / Screenshots**
-If applicable, add relevant terminal logs or error tracebacks (do NOT include real API keys or credentials).
+## Resultado esperado
+
+## Entorno
+
+- Sistema operativo:
+- Versión de Python:
+- `TOOL_MODE`:
+- Modelo, revisión y cuantización:
+- Commit de CyberCore:
+
+## Evidencia
+
+Incluye logs sanitizados y pruebas mínimas. No publiques IP internas,
+credenciales, tokens, secretos ni evidencia empresarial real.
