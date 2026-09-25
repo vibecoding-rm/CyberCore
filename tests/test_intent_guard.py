@@ -38,3 +38,30 @@ def test_does_not_block_an_explanatory_question_that_mentions_public_ip():
     result = inspect_intent_scope("¿Por qué 8.8.8.8 está fuera del alcance?", POLICY)
     assert result.targets == ("8.8.8.8",)
     assert result.allowed is True
+
+
+def test_blocks_out_of_scope_targets_with_other_operation_words():
+    for intent in (
+        "Revisa los servicios de 8.8.8.8",
+        "Haz un nmap a 8.8.8.8",
+        "Analiza el host 8.8.8.8",
+        "Escanea 192.168.10.5, 192.168.10.6 y 8.8.8.8",
+    ):
+        assert inspect_intent_scope(intent, POLICY).allowed is False, intent
+
+
+def test_does_not_treat_versions_or_context_addresses_as_targets():
+    version = inspect_intent_scope(
+        "Consulta el inventario de 192.168.10.5; el agente usa la versión 1.2.3.4", POLICY
+    )
+    assert version.targets == ("192.168.10.5",)
+    assert version.allowed is True
+
+    dns = inspect_intent_scope(
+        "Consulta el inventario de 192.168.10.5 y dime si usa 8.8.8.8 como DNS", POLICY
+    )
+    assert dns.allowed is True
+
+
+def test_ignores_dotted_numbers_that_are_not_addresses():
+    assert inspect_intent_scope("Escanea 999.1.1.1", POLICY).targets == ()
