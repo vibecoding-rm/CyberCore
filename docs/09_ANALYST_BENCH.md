@@ -179,6 +179,31 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   debían a esta limitación. Hace falta una ejecución nueva sobre los casos
   actuales.
 - Falta un segundo revisor (humano) antes de dar el resultado por completo.
+- Segunda ejecución `2026-09-25-dev-9b-r2` sobre los casos corregidos, con el
+  9B y dos prompts: v1 (C1) y v2 (C2), que añade las reglas que faltaban
+  (versión sólo según el veredicto del motor, backports, pruebas negativas,
+  confianza según el estado). Puntuada por `claude-revisor` con la página a
+  ciegas (C1 y C2 anónimos entre sí; C0 reconocible), informe
+  `reports/analyst/2026-09-25-dev-9b-r2-report.json`:
+
+  | Criterio | C0 | C1 (v1) | C2 (v2) |
+  |---|---|---|---|
+  | Fidelidad | 1,60 | 1,40 | **1,80** |
+  | Completitud | 1,00 | **1,98** | 1,95 |
+  | Accionabilidad | 0,90 | 1,82 | **1,88** |
+  | Calibración | 1,10 | 1,68 | **2,00** |
+  | Claridad | 1,00 | **2,00** | **2,00** |
+  | Total | 5,60 | 8,88 | **9,63** |
+  | Fidelidad 0 | 0 | 1 | **0** |
+
+  C2 cumple en desarrollo los criterios de adopción; C1 no (una afirmación de
+  versión sin respaldo). El error más repetido de C1, usar backports para
+  dudar de una prueba activa positiva, aparece mucho menos en C2. C2 imita a
+  veces la lista de acciones del prompt con frases genéricas.
+- **Cautelas:** un solo revisor y no humano; v2 se escribió a partir de las
+  críticas de ese mismo revisor sobre este split, así que el resultado puede
+  estar sobreajustado a su criterio. La conclusión sólo vale tras el holdout
+  (familias de CVE nuevas) con al menos un revisor humano.
 - Generar los casos destapó un fallo del motor: una reproducción de Nuclei en
   otra IP confirmaba el hallazgo. Corregido en `assess_nuclei_validation`.
 
