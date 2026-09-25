@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from app.evaluation.rules import PRIORITY_RULE_TEXT
 from app.llm.base import ModelCompletion
 
-Split = Literal["train", "development", "test"]
+Split = Literal["train", "development", "test", "holdout"]
 
 
 ToolName = Literal[

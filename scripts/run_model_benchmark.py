@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--suite", default="config/benchmark_cybercam.yaml")
     parser.add_argument(
         "--split",
-        choices=["train", "development", "test", "all"],
+        choices=["train", "development", "test", "holdout", "all"],
         default="development",
         help="'test' sólo para la medición final; nunca para ajustar el prompt",
     )
