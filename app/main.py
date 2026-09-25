@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from uuid import UUID
 from pathlib import Path
@@ -11,6 +12,7 @@ from app.api.models import (
     EvidenceAnalysisRequest,
     EvidenceAssessment,
     EvidenceCaseBundle,
+    EvidenceSigningKeyResponse,
     FindingExportRequest,
     FindingExportResponse,
     InventoryAssessmentRequest,
@@ -35,6 +37,7 @@ from app.core.audit import AuditStoreError, EvidenceIntegrityError
 from app.core.auth import ApiKeyAuthenticator, Principal
 from app.core.evidence_analysis import EvidenceGapAnalyzer
 from app.core.evidence_bundle import build_evidence_case
+from app.core.evidence_signing import EvidenceSigner, public_key_pem
 from app.core.policy import PolicyEngine
 from app.core.tool_broker import ToolAdapter, ToolBroker
 from app.integrations.defectdojo import (
@@ -66,6 +69,8 @@ from app.tools.greenbone import (
     GreenboneStartTaskTool,
 )
 from app.tools.wazuh import WazuhInventoryTool, WazuhSettings
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -125,6 +130,7 @@ async def lifespan(app: FastAPI):
         settings.database_url,
         settings.database_connect_timeout_seconds,
     )
+    app.state.evidence_signer = _load_evidence_signer(settings.evidence_signing_key_file)
     policy = PolicyEngine(settings.policy_file)
     app.state.broker = ToolBroker(
         policy=policy,
@@ -147,6 +153,26 @@ async def lifespan(app: FastAPI):
     )
     yield
     await app.state.llm_client.aclose()
+
+
+def _load_evidence_signer(path) -> EvidenceSigner | None:
+    if not path.exists():
+        logger.warning(
+            "Sin clave de firma en %s: /v1/evidence/cases no estará disponible "
+            "(créala con scripts/create_evidence_signing_key.py)", path
+        )
+        return None
+    return EvidenceSigner.from_file(path)
+
+
+def _evidence_signer() -> EvidenceSigner:
+    signer = getattr(app.state, "evidence_signer", None)
+    if signer is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La firma de expedientes no está configurada",
+        )
+    return signer
 
 
 def _wazuh_settings(settings) -> WazuhSettings | None:
@@ -430,9 +456,21 @@ async def create_evidence_case(
     request: EvidenceAnalysisRequest,
     principal: Principal = Depends(require_operator),
 ) -> EvidenceCaseBundle:
-    """Create a portable snapshot after re-verifying every evidence hash."""
+    """Create a signed portable snapshot after re-verifying every evidence hash."""
+    signer = _evidence_signer()
     assessment, inventory, validation, info = await _assess_sealed(request)
-    return build_evidence_case(assessment, inventory, validation, info)
+    return build_evidence_case(assessment, inventory, validation, info, signer)
+
+
+@app.get("/v1/evidence/signing-key", response_model=EvidenceSigningKeyResponse)
+async def get_evidence_signing_key(
+    principal: Principal = Depends(require_operator),
+) -> EvidenceSigningKeyResponse:
+    """Public key for offline verification; compare its id through a trusted channel."""
+    signer = _evidence_signer()
+    return EvidenceSigningKeyResponse(
+        signing_key_id=signer.key_id, public_key_pem=public_key_pem(signer.public_key)
+    )
 
 
 @app.post("/v1/findings/export", response_model=FindingExportResponse)

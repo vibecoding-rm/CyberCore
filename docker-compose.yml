@@ -16,6 +16,8 @@ services:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     volumes:
       - ./config:/opt/cybercore/config:ro
+      # Evidence case signing key (scripts/create_evidence_signing_key.py).
+      - ./secrets:/opt/cybercore/secrets:ro
     depends_on:
       postgres:
         condition: service_healthy

@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     defectdojo_verify_tls: bool = True
     defectdojo_ca_bundle: str = ""
     nuclei_allowlist_file: Path = Path("config/nuclei_templates.yaml")
+    # Created with scripts/create_evidence_signing_key.py; never committed.
+    evidence_signing_key_file: Path = Path("secrets/evidence_signing_ed25519.pem")
     tool_mode: Literal["mock", "local"] = "mock"
     log_level: str = "INFO"
 

@@ -156,11 +156,11 @@ class FindingExportResponse(BaseModel):
 
 
 class EvidenceCaseBundle(BaseModel):
-    """Portable, tamper-evident snapshot built only from sealed evidence."""
+    """Portable snapshot built only from sealed evidence and signed by the server."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["cybercore.evidence-case/v1"]
+    schema_version: Literal["cybercore.evidence-case/v2"]
     case_id: str = Field(pattern=r"^CASE-[0-9A-F]{16}$")
     generated_at: datetime
     target: str
@@ -169,7 +169,19 @@ class EvidenceCaseBundle(BaseModel):
     vulnerability_snapshot: dict[str, Any] | None = None
     evidence: list[Evidence] = Field(min_length=1, max_length=11)
     integrity_algorithm: Literal["sha256"] = "sha256"
+    signature_algorithm: Literal["ed25519"] = "ed25519"
+    signing_key_id: str = Field(pattern=r"^[0-9a-f]{16}$")
     bundle_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    # Ed25519 signature of bundle_sha256; the only field outside the digest.
+    signature: str = Field(min_length=88, max_length=88)
+
+
+class EvidenceSigningKeyResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    signature_algorithm: Literal["ed25519"] = "ed25519"
+    signing_key_id: str
+    public_key_pem: str
 
 
 class InventoryAssessmentResponse(BaseModel):

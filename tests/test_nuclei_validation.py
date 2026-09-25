@@ -4,10 +4,13 @@ from typing import Any
 import httpx
 import pytest
 
-from app.api.models import Evidence
+from app.api.models import Evidence, EvidenceCaseBundle
 from app.core.audit import AuditStoreError, EvidenceIntegrityError
 from app.core.auth import ApiCredential, ApiKeyAuthenticator
+from app.core.canonical import evidence_sha256
 from app.core.evidence_analysis import EvidenceGapAnalyzer, decide_status
+from app.core.evidence_bundle import verify_evidence_case
+from app.core.evidence_signing import EvidenceSigner
 from app.core.validation import assess_nuclei_validation
 from app.intelligence.matching import VulnerabilityMatcher
 from app.main import app
@@ -16,6 +19,7 @@ from tests.test_matching import FakeRangeRepository, stored
 CVE = "CVE-2024-6387"
 TARGET = "192.168.10.25"
 OPERATOR_KEY = "operator-key-with-at-least-32-characters"
+SIGNER = EvidenceSigner.generate()
 
 
 def nuclei_evidence(
@@ -45,7 +49,7 @@ def nuclei_evidence(
     if simulated:
         data["source"] = "simulated"
     return Evidence(
-        evidence_id=evidence_id, source=source, target=target, data=data, sha256="d" * 64
+        evidence_id=evidence_id, source=source, target=target, data=data, sha256=evidence_sha256(data)
     )
 
 
@@ -62,7 +66,7 @@ def inventory(simulated: bool = False, cpe: str = "cpe:/a:openbsd:openssh:9.6p1"
         source="inspect_services" if not simulated else "get_mock_inventory",
         target=TARGET,
         data=data,
-        sha256="e" * 64,
+        sha256=evidence_sha256(data),
     )
 
 
@@ -205,6 +209,7 @@ async def api_client(store: FakeEvidenceStore):
             ]
         )
         app.state.evidence_store = store
+        app.state.evidence_signer = SIGNER
         app.state.vulnerability_repository = FakeVulnRepo()
         app.state.vulnerability_matcher = VulnerabilityMatcher(FakeRangeRepository([stored()]))
         async with httpx.AsyncClient(
@@ -272,10 +277,36 @@ async def test_evidence_case_endpoint_contains_verified_snapshot():
 
     assert response.status_code == 200
     bundle = response.json()
-    assert bundle["schema_version"] == "cybercore.evidence-case/v1"
+    assert bundle["schema_version"] == "cybercore.evidence-case/v2"
     assert bundle["case_id"].startswith("CASE-")
     assert bundle["assessment"]["finding_status"] == "confirmed"
     assert [item["evidence_id"] for item in bundle["evidence"]] == [
         inv.evidence_id, val.evidence_id
     ]
     assert len(bundle["bundle_sha256"]) == 64
+    assert verify_evidence_case(EvidenceCaseBundle.model_validate(bundle), SIGNER.public_key)
+
+
+@pytest.mark.asyncio
+async def test_evidence_case_endpoint_needs_a_signing_key():
+    inv = inventory()
+    async with api_client(FakeEvidenceStore({inv.evidence_id: inv})) as client:
+        app.state.evidence_signer = None
+        response = await client.post(
+            "/v1/evidence/cases",
+            json={"vulnerability_id": CVE, "inventory_evidence_id": inv.evidence_id},
+        )
+        key = await client.get("/v1/evidence/signing-key")
+
+    assert response.status_code == 503
+    assert key.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_signing_key_endpoint_publishes_the_public_key():
+    async with api_client(FakeEvidenceStore({})) as client:
+        response = await client.get("/v1/evidence/signing-key")
+
+    assert response.status_code == 200
+    assert response.json()["signing_key_id"] == SIGNER.key_id
+    assert "PRIVATE" not in response.json()["public_key_pem"]

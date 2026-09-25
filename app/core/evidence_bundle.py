@@ -1,4 +1,4 @@
-"""Build and verify portable evidence cases from already sealed records."""
+"""Build and verify portable, signed evidence cases from already sealed records."""
 
 from __future__ import annotations
 
@@ -6,12 +6,16 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from app.api.models import Evidence, EvidenceAssessment, EvidenceCaseBundle
 from app.core.canonical import evidence_sha256
+from app.core.evidence_signing import EvidenceSigner, key_id, verify_signature
 from app.core.tool_broker import ToolBroker
 
 
-SCHEMA_VERSION = "cybercore.evidence-case/v1"
+SCHEMA_VERSION = "cybercore.evidence-case/v2"
+_UNSIGNED = {"bundle_sha256", "signature"}
 _VULNERABILITY_FIELDS = (
     "vulnerability_id",
     "source",
@@ -53,6 +57,7 @@ def build_evidence_case(
     inventory: Evidence,
     validation: list[Evidence],
     vulnerability_info: dict[str, Any] | None,
+    signer: EvidenceSigner,
     *,
     generated_at: datetime | None = None,
 ) -> EvidenceCaseBundle:
@@ -70,23 +75,32 @@ def build_evidence_case(
         "vulnerability_snapshot": _vulnerability_snapshot(vulnerability_info),
         "evidence": evidence,
         "integrity_algorithm": "sha256",
+        "signature_algorithm": "ed25519",
+        "signing_key_id": signer.key_id,
     }
     json_payload = EvidenceCaseBundle.model_validate(
-        unsigned | {"bundle_sha256": "0" * 64}
-    ).model_dump(mode="json", exclude={"bundle_sha256"})
+        unsigned | {"bundle_sha256": "0" * 64, "signature": "A" * 88}
+    ).model_dump(mode="json", exclude=_UNSIGNED)
+    digest = _bundle_digest(json_payload)
     return EvidenceCaseBundle.model_validate(
-        unsigned | {"bundle_sha256": _bundle_digest(json_payload)}
+        unsigned | {"bundle_sha256": digest, "signature": signer.sign(digest)}
     )
 
 
-def verify_evidence_case(bundle: EvidenceCaseBundle) -> bool:
-    return not evidence_case_integrity_issues(bundle)
+def verify_evidence_case(bundle: EvidenceCaseBundle, public_key: Ed25519PublicKey) -> bool:
+    return not evidence_case_integrity_issues(bundle, public_key)
 
 
-def evidence_case_integrity_issues(bundle: EvidenceCaseBundle) -> list[str]:
-    """Verify the envelope, sealed bodies and internal evidence references."""
+def evidence_case_integrity_issues(
+    bundle: EvidenceCaseBundle, public_key: Ed25519PublicKey
+) -> list[str]:
+    """Verify the signature, envelope, sealed bodies and internal references."""
     issues: list[str] = []
-    payload = bundle.model_dump(mode="json", exclude={"bundle_sha256"})
+    if bundle.signing_key_id != key_id(public_key):
+        issues.append("El expediente está firmado con otra clave")
+    elif not verify_signature(public_key, bundle.bundle_sha256, bundle.signature):
+        issues.append("La firma del expediente no es válida")
+    payload = bundle.model_dump(mode="json", exclude=_UNSIGNED)
     if _bundle_digest(payload) != bundle.bundle_sha256:
         issues.append("El hash del expediente no coincide")
     if bundle.case_id != _case_id(bundle.vulnerability_id, bundle.evidence):
