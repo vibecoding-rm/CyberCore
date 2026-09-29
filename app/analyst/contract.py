@@ -64,6 +64,12 @@ _QUALIFIED = re.compile(
     re.I,
 )
 _NEGATION = re.compile(r"\b(?:no|nunca|ni|todav[ií]a\s+no|a[uú]n\s+no)\b", re.I)
+# CISA KEV means exploitation of the CVE in the wild, not of this asset: "la
+# vulnerabilidad está activamente explotada (KEV)" is grounded when the case
+# says the CVE is in KEV.
+_EXPLOITED_IN_THE_WILD = re.compile(
+    r"\bactivamente\s+explotad[oa]\b|\bexplotad[oa]\s+activamente\b", re.I
+)
 # Recommendations must be defensive and reversible, never offensive steps.
 # "Prueba de explotación con plantilla aprobada" is the engine's own active
 # validation; the verbs of exploiting a target are not.
@@ -99,10 +105,12 @@ def _strings(value: Any) -> list[str]:
     return []
 
 
-def _claims_confirmation(text: str) -> bool:
+def _claims_confirmation(text: str, kev: bool = False) -> bool:
     for match in _CONFIRMATION.finditer(text):
         # "el hallazgo no está confirmado": the negation sits inside the match.
         if _NEGATION.search(match.group(0)):
+            continue
+        if kev and _EXPLOITED_IN_THE_WILD.search(text[match.start() : match.end() + 15]):
             continue
         if not _QUALIFIED.search(text[: match.start()]):
             return True
@@ -148,7 +156,8 @@ def analyst_gate_violations(bundle: EvidenceCaseBundle, output: AnalystOutput) -
 
     status = bundle.assessment.finding_status
     if status != "confirmed":
-        if any(_claims_confirmation(text) for text in texts):
+        kev = snapshot.get("kev") is True
+        if any(_claims_confirmation(text, kev) for text in texts):
             violations.append(f"afirma una confirmación que el motor no concede (estado {status})")
         if not output.missing_evidence:
             violations.append("no indica qué evidencia falta aunque el hallazgo no está confirmado")

@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-29",
+  "system": "C2 = qwen3.5:9b Q4_K_M, prompt v2",
+  "split": "development",
+  "cases": [
+    "analyst-dev-001",
+    "analyst-dev-002",
+    "analyst-dev-003",
+    "analyst-dev-004",
+    "analyst-dev-005",
+    "analyst-dev-006",
+    "analyst-dev-007",
+    "analyst-dev-008",
+    "analyst-dev-009",
+    "analyst-dev-010"
+  ],
+  "hardware": "AMD Ryzen 5 5500, 16 GB RAM, Windows 10, Docker; llama.cpp CPU, contenedor con mem_limit 8g, contexto 8192, 1 slot",
+  "conditions": "otros proyectos en Docker activos durante la medida; ejecución detenida tras 10 de 40 casos",
+  "latency_s": {
+    "per_case": [
+      293.6,
+      329.9,
+      182.9,
+      247.4,
+      329.1,
+      242.4,
+      266.4,
+      226.0,
+      289.2,
+      187.3
+    ],
+    "mean": 259.4,
+    "median": 256.9,
+    "max": 329.9
+  },
+  "prompt": {
+    "mean_tokens": 1112,
+    "mean_tokens_per_s": 10.8
+  },
+  "generation": {
+    "mean_tokens": 602,
+    "mean_tokens_per_s": 3.85
+  },
+  "memory": {
+    "llamacpp_container_gib": {
+      "min": 6.673,
+      "max": 7.514
+    },
+    "host_free_gb": {
+      "min": 1.05,
+      "mean": 1.82
+    },
+    "samples_every_s": 15,
+    "samples": 158
+  }
+}

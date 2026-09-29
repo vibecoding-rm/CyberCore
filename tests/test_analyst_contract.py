@@ -18,7 +18,7 @@ GAP = EvidenceGap(
 )
 
 
-def bundle(status="probable", gaps=(GAP,), conclusion="Hallazgo probable."):
+def bundle(status="probable", gaps=(GAP,), conclusion="Hallazgo probable.", kev=False):
     assessment = EvidenceAssessment(
         target="192.168.10.25",
         vulnerability_id="CVE-2024-6387",
@@ -30,7 +30,7 @@ def bundle(status="probable", gaps=(GAP,), conclusion="Hallazgo probable."):
     )
     return build_evidence_case(
         assessment, evidence("EVD-AAAAAAAAAAAA", "inspect_services"), [],
-        {"vulnerability_id": "CVE-2024-6387", "aliases": ["GHSA-2x8c-95vh-gfv4"]}, SIGNER,
+        {"vulnerability_id": "CVE-2024-6387", "aliases": ["GHSA-2x8c-95vh-gfv4"], "kev": kev}, SIGNER,
         generated_at=datetime(2026, 9, 25, 12, tzinfo=timezone.utc),
     )
 
@@ -124,6 +124,20 @@ def test_mentions_of_confirmation_are_not_claims(text):
 def test_confirmation_claims_fail_when_the_engine_did_not_confirm(text):
     violations = analyst_gate_violations(bundle(), answer(summary=text))
     assert any("confirmación" in v for v in violations), text
+
+
+# Foundation-Sec-1.1-8B on the development split (2026-09-29): KEV describes
+# exploitation of the CVE in the wild, not of this asset.
+KEV_TEXT = "La versión está en el rango y la vulnerabilidad está activamente explotada (KEV)."
+
+
+def test_exploitation_in_the_wild_is_allowed_when_the_case_is_in_kev():
+    assert analyst_gate_violations(bundle(kev=True), answer(summary=KEV_TEXT)) == []
+
+
+def test_exploitation_in_the_wild_needs_kev_in_the_case():
+    violations = analyst_gate_violations(bundle(), answer(summary=KEV_TEXT))
+    assert any("confirmación" in v for v in violations)
 
 
 @pytest.mark.parametrize("action", [

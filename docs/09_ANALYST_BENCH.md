@@ -242,6 +242,45 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   medir latencia y RAM en el equipo de 16 GB (criterio 4). Este holdout ya se
   ha usado para comparar v1 y v2; si se cambia el prompt a partir de estos
   resultados, habrá que generar otro con familias nuevas.
+- **Latencia y RAM en el equipo de 16 GB** (criterio 4; 2026-09-29,
+  `reports/analyst/2026-09-29-cpu-9b-v2-latency.json`): 9B con v2 en la CPU
+  local (Ryzen 5 5500, llama.cpp, contenedor limitado a 8 GB), 10 casos de
+  desarrollo. Media **259 s por caso** (mediana 257 s, máximo 330 s): unos
+  100 s procesando ~1100 tokens de prompt a 10,8 tok/s y unos 155 s
+  generando ~600 tokens a 3,9 tok/s. El contenedor llegó a **7,51 GB** de sus
+  8 GB y al equipo le quedaron como mínimo **1,05 GB libres**, con otros
+  proyectos en Docker activos. Funciona, pero cuatro minutos y medio por
+  hallazgo sólo sirven para análisis en segundo plano, no interactivo, y el
+  margen de memoria es escaso. La ejecución se detuvo tras 10 casos a
+  petición del usuario; las latencias salen del registro de llama.cpp.
+- **Foundation-Sec-1.1-8B-Instruct** (Cisco Foundation AI, base Llama 3.1 8B,
+  GGUF Q4_K_M oficial de 4,92 GB, sólo declara inglés), comparado a ciegas
+  con el 9B, ambos con v2 en una L4 (`2026-09-29-dev-8b-vs-9b`, informe
+  `reports/analyst/2026-09-29-dev-8b-vs-9b-report.json`):
+
+  | Criterio | C0 | C2 (Qwen 9B) | C3 (Foundation 8B) |
+  |---|---|---|---|
+  | Puerta | 40/40 | 40/40 | 40/40 |
+  | Fidelidad | 2,00 | **1,85** | 1,68 |
+  | Completitud | 1,00 | **1,82** | 1,50 |
+  | Accionabilidad | 1,27 | 1,60 | **1,62** |
+  | Calibración | 1,10 | **2,00** | 1,88 |
+  | Claridad | 1,00 | **1,98** | 1,40 |
+  | Total | 6,38 | **9,25** | 8,07 |
+  | Fidelidad 1 / completitud 0 | 0 / 0 | 6 / 0 | 13 / 2 |
+  | Latencia media (L4) | — | 15,7 s | 16,5 s |
+
+  Responde en español y tarda lo mismo que el 9B, pero **no mejora al 9B**:
+  dice que un positivo de Nuclei «indica la presencia» de la vulnerabilidad
+  cuando el motor no lo concede, no recoge contradicciones que el motor
+  detectó, olvida el inventario simulado en dos casos, pide comparaciones de
+  versiones que el motor ya hizo, recomienda parches para versiones fuera de
+  rango o desconocidas y abre con resúmenes de relleno. No se adopta ni se
+  ajusta. Su primera pasada destapó un falso positivo de la puerta («la
+  vulnerabilidad está activamente explotada (KEV)» cuando el expediente lo
+  dice), corregido con pruebas; las ejecuciones anteriores no cambian. La
+  publicación `2026-09-29-dev-foundation` quedó con la puerta antigua y se
+  descarta; la válida es `2026-09-29-dev-8b-vs-9b`.
 
 ## Limitaciones conocidas
 
