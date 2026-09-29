@@ -16,6 +16,8 @@ from app.analyst.bench import (
     SystemInfo,
     build_report,
     next_blind_case,
+    review_sample,
+    summarize,
 )
 from app.analyst.prompt import analyst_response_schema, run_llm_analyst
 from app.api.models import EvidenceCaseBundle
@@ -112,6 +114,28 @@ def test_blind_case_hides_systems_and_skips_gate_failures():
     assert second.reviewed_cases == 1
 
 
+def test_a_review_sample_restricts_the_blind_cases(tmp_path):
+    run = make_run()
+    samples = tmp_path / "samples.json"
+    samples.write_text(json.dumps({run.run_id: {"cases": ["case-2"]}}), encoding="utf-8")
+    cases = review_sample(run, samples)
+    assert cases == ["case-2"]
+    assert summarize(run, cases).sample_cases == 1
+    blind = next_blind_case(run, "alice", [], set(cases))
+    assert blind.case_id == "case-2" and blind.total_cases == 1
+    scored = [score(run, "case-2", "C0", "alice", 2)]
+    assert next_blind_case(run, "alice", scored, set(cases)) is None
+
+
+def test_a_review_sample_must_belong_to_the_run(tmp_path):
+    run = make_run()
+    samples = tmp_path / "samples.json"
+    assert review_sample(run, samples) is None
+    samples.write_text(json.dumps({run.run_id: {"cases": ["case-9"]}}), encoding="utf-8")
+    with pytest.raises(ValueError):
+        review_sample(run, samples)
+
+
 def test_answer_order_depends_on_the_reviewer():
     run = make_run()
     orders = {
@@ -204,6 +228,7 @@ async def test_blind_review_api_flow():
         ) as client:
             runs = await client.get("/v1/analyst-bench/runs")
             blind = await client.get("/v1/analyst-bench/runs/test-run/next")
+            no_sample = await client.get("/v1/analyst-bench/runs/test-run/next?sample=true")
             answer_id = blind.json()["answers"][0]["answer_id"]
             body = {"case_id": "case-1", "answer_id": answer_id,
                     "scores": {"fidelity": 2, "completeness": 1, "actionability": 1,
@@ -216,6 +241,7 @@ async def test_blind_review_api_flow():
 
     assert runs.json()[0]["run_id"] == "test-run"
     assert "C1" not in blind.text
+    assert no_sample.status_code == 404  # test-run has no review sample
     assert first.status_code == 201
     assert again.status_code == 409
     assert failed.status_code == 404  # gate failures are never shown or scored

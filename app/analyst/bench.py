@@ -8,9 +8,11 @@ differs per reviewer, so they cannot tell the template from a model.
 from __future__ import annotations
 
 import hashlib
+import json
 import statistics
 from datetime import datetime
 from itertools import combinations
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,6 +20,9 @@ from pydantic import BaseModel, ConfigDict, Field
 CRITERIA = ("fidelity", "completeness", "actionability", "calibration", "clarity")
 RUN_ID_PATTERN = r"^[a-z0-9][a-z0-9._-]{2,99}$"
 SYSTEM_PATTERN = r"^C[0-9]{1,2}$"
+# Cases a reviewer scores when a full pass is not required (docs/09: a human
+# scores a stratified sample of a holdout to measure agreement).
+REVIEW_SAMPLES = Path("config/analyst_bench/review_samples.json")
 
 
 class AnswerRecord(BaseModel):
@@ -122,17 +127,39 @@ class RunSummary(BaseModel):
     created_at: datetime
     cases: int
     systems: list[str]
+    sample_cases: int = 0
 
 
-def summarize(run: AnalystRun) -> RunSummary:
+def review_sample(run: AnalystRun, path: Path = REVIEW_SAMPLES) -> list[str] | None:
+    """The run's review sample, or None; every case must belong to the run."""
+    try:
+        samples = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    entry = samples.get(run.run_id)
+    if entry is None:
+        return None
+    cases = list(entry["cases"])
+    unknown = set(cases) - {result.case_id for result in run.results}
+    if unknown or len(set(cases)) != len(cases):
+        raise ValueError(f"Muestra de revisión inválida para {run.run_id}: {sorted(unknown)}")
+    return cases
+
+
+def summarize(run: AnalystRun, sample: list[str] | None = None) -> RunSummary:
     return RunSummary(
         run_id=run.run_id, split=run.split, created_at=run.created_at,
-        cases=len(run.results), systems=sorted(run.systems),
+        cases=len(run.results), systems=sorted(run.systems), sample_cases=len(sample or []),
     )
 
 
-def next_blind_case(run: AnalystRun, reviewer: str, scores: list[StoredScore]) -> BlindCase | None:
-    """First case with a gate-passing answer this reviewer has not scored yet."""
+def next_blind_case(
+    run: AnalystRun, reviewer: str, scores: list[StoredScore], only: set[str] | None = None,
+) -> BlindCase | None:
+    """First case with a gate-passing answer this reviewer has not scored yet.
+
+    With ``only``, the review is restricted to those cases (a review sample).
+    """
     done = {(s.case_id, s.answer_id) for s in scores if s.reviewer == reviewer}
     reviewable = [
         (result, [
@@ -140,6 +167,7 @@ def next_blind_case(run: AnalystRun, reviewer: str, scores: list[StoredScore]) -
             for system, answer in result.answers.items() if answer.passed_gate
         ])
         for result in run.results
+        if only is None or result.case_id in only
     ]
     reviewable = [(result, answers) for result, answers in reviewable if answers]
     reviewed = sum(

@@ -84,6 +84,34 @@ Una puntuación 0 en **fidelidad** cuenta como fallo aunque el total sea alto.
   exactas y a ±1 punto por criterio).
 - La página es `/analyst-review` (misma autenticación que `/review`): muestra
   el expediente y las respuestas anónimas con la rúbrica.
+- **Muestra de revisión** (cambio del 2026-09-29, decidido por el usuario):
+  en el holdout `2026-09-25-holdout-9b` el revisor humano puntúa una muestra
+  estratificada de 15 de los 60 casos en lugar de todos
+  (`config/analyst_bench/review_samples.json`, con el motivo). La página la
+  usa automáticamente (`/next?sample=true`). Sirve para medir el acuerdo con
+  `claude-revisor`; si es alto, sus puntuaciones del resto ganan
+  credibilidad, pero la adopción seguirá indicando que sólo esa muestra tuvo
+  revisor humano. La eligió `claude-revisor` después de puntuar, e incluye
+  casos donde fue duro con el candidato para comprobar si se pasó.
+
+### Guía rápida para el revisor humano
+
+- **Lee primero el expediente** (estado del motor, observaciones y evidencias)
+  y juzga cada respuesta sólo contra él, no contra lo que sepas de la CVE.
+- **Fidelidad:** 0 si afirma algo que el expediente no respalda (una versión
+  afectada que el motor no dio, un exploit con éxito, un dato inventado); 1 si
+  todo está respaldado salvo alguna imprecisión (un identificador mal copiado,
+  «la prueba no se ejecutó» cuando acertó en otra IP, backports usados para
+  dudar de una prueba activa positiva); 2 si todo se puede rastrear.
+- **Completitud:** ¿explica cada hueco (`missing_evidence`) y cada
+  contradicción del motor y por qué importa? Listar sin explicar es 1.
+- **Accionabilidad:** pasos defensivos concretos y en orden; nada de «cerrar el
+  hallazgo» sin revisión humana ni parches para versiones fuera de rango.
+- **Calibración:** confirmed → alta, probable → media, candidate → baja, y que
+  lo justifique con la evidencia.
+- **Claridad:** en español y comprensible para quien no conoce el caso.
+- Una de las respuestas es una plantilla sin modelo (frases fijas, listas
+  escuetas): puntúala igual, con la misma rúbrica.
 
 ## Casos
 

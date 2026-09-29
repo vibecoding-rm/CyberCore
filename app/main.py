@@ -32,6 +32,7 @@ from app.analyst.bench import (
     StoredScore,
     build_report,
     next_blind_case,
+    review_sample,
     reviewable_answer,
     summarize,
 )
@@ -808,7 +809,9 @@ async def list_analyst_runs(
     principal: Principal = Depends(require_approver),
 ) -> list[RunSummary]:
     try:
-        return [summarize(run) for run in await app.state.analyst_bench.list_runs()]
+        return [
+            summarize(run, review_sample(run)) for run in await app.state.analyst_bench.list_runs()
+        ]
     except AnalystBenchStoreError as exc:
         raise _analyst_bench_unavailable() from exc
 
@@ -816,15 +819,28 @@ async def list_analyst_runs(
 @app.get("/v1/analyst-bench/runs/{run_id}/next", response_model=BlindCase | None)
 async def next_analyst_case(
     run_id: str,
+    sample: bool = False,
     principal: Principal = Depends(require_approver),
 ) -> BlindCase | None:
-    """Next case for this reviewer, with answers anonymised and shuffled."""
+    """Next case for this reviewer, with answers anonymised and shuffled.
+
+    ``sample=true`` restricts the review to the run's review sample.
+    """
     run = await _analyst_run(run_id)
+    only = None
+    if sample:
+        cases = review_sample(run)
+        if cases is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Esta ejecución no tiene muestra de revisión",
+            )
+        only = set(cases)
     try:
         scores = await app.state.analyst_bench.scores(run_id)
     except AnalystBenchStoreError as exc:
         raise _analyst_bench_unavailable() from exc
-    return next_blind_case(run, principal.subject, scores)
+    return next_blind_case(run, principal.subject, scores, only)
 
 
 @app.post(

@@ -1,0 +1,24 @@
+{
+  "2026-09-25-holdout-9b": {
+    "cases": [
+      "analyst-hol-001",
+      "analyst-hol-002",
+      "analyst-hol-007",
+      "analyst-hol-040",
+      "analyst-hol-058",
+      "analyst-hol-008",
+      "analyst-hol-011",
+      "analyst-hol-014",
+      "analyst-hol-029",
+      "analyst-hol-044",
+      "analyst-hol-017",
+      "analyst-hol-020",
+      "analyst-hol-027",
+      "analyst-hol-036",
+      "analyst-hol-057"
+    ],
+    "reviewer": "humano (revisor-web)",
+    "reason": "Muestra estratificada para el revisor humano obligatorio en el holdout (docs/09): 5 casos por CVE; 2 confirmed, 4 probable y 9 candidate; cubre contradicción, inventario simulado, prueba negativa, acierto en otra IP, detección pasiva, sin rangos, sin versión y versión fuera de rango; incluye 5 de los 6 casos en que claude-revisor puso fidelidad 1 a C2 (007, 014, 027, 057, 058). Elegida por claude-revisor después de puntuar; el revisor humano no ve sus puntuaciones.",
+    "created": "2026-09-29"
+  }
+}

@@ -18,7 +18,7 @@ const SECTIONS = [
   ["recommended_actions", "Acciones recomendadas"],
 ];
 
-const state = { key: null, run: null };
+const state = { key: null, run: null, sample: false };
 const $ = (id) => document.getElementById(id);
 
 function el(tag, props = {}, children = []) {
@@ -94,7 +94,7 @@ async function login(key) {
 
 function logout() {
   storeKey(null);
-  Object.assign(state, { key: null, run: null });
+  Object.assign(state, { key: null, run: null, sample: false });
   $("runs").hidden = true;
   $("case").hidden = true;
   $("session").hidden = true;
@@ -117,15 +117,18 @@ function renderRuns(runs) {
   for (const run of runs) {
     const button = el("button", { type: "button" }, [
       el("span", { className: "intent", text: run.run_id }),
-      el("span", { className: "meta", text: `${run.split} · ${run.cases} casos · ${run.systems.length} respuestas por caso` }),
+      el("span", { className: "meta", text: `${run.split} · ${run.cases} casos · ${run.systems.length} respuestas por caso`
+        + (run.sample_cases ? ` · revisión de una muestra de ${run.sample_cases} casos` : "") }),
     ]);
-    button.addEventListener("click", () => openRun(run.run_id));
+    button.addEventListener("click", () => openRun(run.run_id, run.sample_cases > 0));
     list.append(el("li", {}, [button]));
   }
 }
 
-async function openRun(runId) {
+async function openRun(runId, sample) {
   state.run = runId;
+  // With a review sample the reviewer scores only those cases (docs/09).
+  state.sample = sample;
   $("runs").hidden = true;
   await loadNext();
 }
@@ -138,7 +141,8 @@ async function loadNext() {
   panel.replaceChildren(el("p", { className: "empty", text: "Cargando…" }));
   let blind;
   try {
-    blind = await api(`/v1/analyst-bench/runs/${encodeURIComponent(state.run)}/next`);
+    const query = state.sample ? "?sample=true" : "";
+    blind = await api(`/v1/analyst-bench/runs/${encodeURIComponent(state.run)}/next${query}`);
   } catch (error) {
     panel.replaceChildren(el("p", { className: "error", text: error.message }));
     return;
@@ -148,13 +152,15 @@ async function loadNext() {
     const back = el("button", { type: "button", className: "ghost", text: "Volver a las ejecuciones" });
     back.addEventListener("click", () => login(state.key));
     panel.replaceChildren(el("section", { className: "card" }, [
-      el("h2", { text: "Has puntuado todas las respuestas de esta ejecución." }),
+      el("h2", { text: state.sample ? "Has puntuado todos los casos de la muestra."
+        : "Has puntuado todas las respuestas de esta ejecución." }),
       el("p", { text: "Gracias. El informe comparativo se genera con scripts/analyst_bench_report." }),
       back,
     ]));
     return;
   }
-  $("progress").textContent = `Caso ${blind.reviewed_cases + 1} de ${blind.total_cases}`;
+  $("progress").textContent = `Caso ${blind.reviewed_cases + 1} de ${blind.total_cases}`
+    + (state.sample ? " (muestra)" : "");
   renderCase(blind);
 }
 
