@@ -311,3 +311,19 @@ def test_prompt_versions_are_selected_per_system():
     bundle = EvidenceCaseBundle.model_validate(load_split("development")[0]["bundle"])
     assert analyst_messages(bundle, "v2")[0]["content"] == ANALYST_PROMPTS["v2"]
     assert "comparacion_de_versiones" in ANALYST_PROMPTS["v2"]
+
+
+def test_checkpoint_reuses_only_matching_answers_without_error(tmp_path):
+    from scripts.run_analyst_bench import load_checkpoint
+
+    path = tmp_path / "run.partial.jsonl"
+    assert load_checkpoint(path, "C2", "m", "v2", "a" * 64) == {}
+    base = {"system": "C2", "model": "m", "prompt": "v2", "cases_sha256": "a" * 64}
+    lines = [
+        {**base, "case_id": "c1", "record": {"output": OUTPUT, "error": None}},
+        {**base, "case_id": "c2", "record": {"output": None, "error": "timeout"}},
+        {**base, "prompt": "v1", "case_id": "c3", "record": {"output": OUTPUT, "error": None}},
+        {**base, "cases_sha256": "b" * 64, "case_id": "c4", "record": {"output": OUTPUT, "error": None}},
+    ]
+    path.write_text("".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8")
+    assert set(load_checkpoint(path, "C2", "m", "v2", "a" * 64)) == {"c1"}

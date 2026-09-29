@@ -17,6 +17,12 @@ gate, re-check a run without calling any model:
 
 Holdout runs need --reason and are appended to reports/analyst/HOLDOUT_LOG.md
 before any answer is produced.
+
+Each model answer is appended to reports/analyst/runs/<run>.partial.jsonl as
+soon as it arrives. Relaunching the same command after an interruption reuses
+those answers (same system, model, prompt and cases; errors are retried) and
+the file is deleted once the run is saved. On a holdout the relaunch is logged
+again, with its own --reason.
 """
 
 from __future__ import annotations
@@ -62,8 +68,22 @@ def gated(record: dict, bundle: EvidenceCaseBundle) -> AnswerRecord:
     return answer
 
 
+def load_checkpoint(path: Path, system: str, model: str, prompt: str, digest: str) -> dict[str, dict]:
+    """Answers already obtained for this system; errors are retried."""
+    if not path.exists():
+        return {}
+    records = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        entry = json.loads(line)
+        if (entry["system"], entry["model"], entry["prompt"], entry["cases_sha256"]) == (
+            system, model, prompt, digest
+        ) and not entry["record"].get("error"):
+            records[entry["case_id"]] = entry["record"]
+    return records
+
+
 async def answer_llm(
-    system: str, model: str, prompt: str, cases: list[dict], args
+    system: str, model: str, prompt: str, cases: list[dict], args, checkpoint: Path, digest: str
 ) -> dict[str, AnswerRecord]:
     settings = get_settings()
     client = LlamaCppChatClient(
@@ -73,6 +93,13 @@ async def answer_llm(
     )
     semaphore = asyncio.Semaphore(args.concurrency)
     answers: dict[str, AnswerRecord] = {}
+    saved = load_checkpoint(checkpoint, system, model, prompt, digest)
+    for case in cases:
+        if case["case_id"] in saved:
+            bundle = EvidenceCaseBundle.model_validate(case["bundle"])
+            answers[case["case_id"]] = gated(saved[case["case_id"]], bundle)
+    if saved:
+        print(f"[{system}] {len(answers)}/{len(cases)} respuestas recuperadas de {checkpoint}", flush=True)
 
     async def one(case: dict) -> None:
         bundle = EvidenceCaseBundle.model_validate(case["bundle"])
@@ -80,6 +107,12 @@ async def answer_llm(
             record = await run_llm_analyst(
                 client, model, bundle, num_predict=args.num_predict, prompt=prompt
             )
+        # Written before anything else, so an interrupted run can be resumed.
+        with checkpoint.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(json.dumps({
+                "system": system, "model": model, "prompt": prompt, "cases_sha256": digest,
+                "case_id": case["case_id"], "record": record,
+            }, ensure_ascii=False) + "\n")
         answers[case["case_id"]] = gated(record, bundle)
         done = len(answers)
         status = "error" if record["error"] else f"{len(answers[case['case_id']].violations)} violaciones"
@@ -88,7 +121,7 @@ async def answer_llm(
     try:
         if model not in await client.available_models():
             raise SystemExit(f"El modelo {model!r} no está disponible en el endpoint")
-        await asyncio.gather(*(one(case) for case in cases))
+        await asyncio.gather(*(one(case) for case in cases if case["case_id"] not in answers))
     finally:
         await client.aclose()
     return answers
@@ -211,8 +244,12 @@ def main() -> int:
     new_answers: dict[str, dict[str, AnswerRecord]] = {}
     if not args.add_to:
         new_answers["C0"] = template_answers(cases)
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    checkpoint = RUNS_DIR / f"{run.run_id}.partial.jsonl"
     for system, (model, prompt) in llm_systems.items():
-        new_answers[system] = asyncio.run(answer_llm(system, model, prompt, cases, args))
+        new_answers[system] = asyncio.run(
+            answer_llm(system, model, prompt, cases, args, checkpoint, run.cases_sha256)
+        )
         endpoint = urlsplit(args.base_url or get_settings().llamacpp_base_url).hostname
         run.systems[system] = SystemInfo(kind="llm", model=model, prompt=prompt,
                                          endpoint=endpoint, hardware=args.hardware)
@@ -220,8 +257,8 @@ def main() -> int:
         for system, answers in new_answers.items():
             result.answers[system] = answers[result.case_id]
 
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
     output.write_text(run.model_dump_json(indent=1), encoding="utf-8", newline="\n")
+    checkpoint.unlink(missing_ok=True)
     for system, answers in new_answers.items():
         passed = sum(a.passed_gate for a in answers.values())
         print(f"{system}: {passed}/{len(answers)} pasan la puerta automática")

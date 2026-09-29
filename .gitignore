@@ -82,3 +82,6 @@ models/
 # Datasets de entrenamiento (derivados de operaciones reales) y adaptadores
 /data/training/
 /adapters/
+
+# --- Analyst-Bench: checkpoint of a run in progress (deleted when the run is saved) ---
+reports/analyst/runs/*.partial.jsonl
