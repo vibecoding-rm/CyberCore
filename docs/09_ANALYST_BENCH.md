@@ -355,3 +355,19 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   negación retórica; la rúbrica de fidelidad y calibración las recoge.
 - Los expedientes tienen una sola evidencia de inventario y, como mucho, una de
   Nuclei; faltan casos con varias fuentes (Wazuh, Greenbone) que se contradigan.
+- **Error de la vista de `claude-revisor` (detectado el 2026-09-29).** Todas
+  sus puntuaciones (holdout, `dev-8b-vs-9b` y `dev-4b-vs-9b`) se hicieron con
+  una vista que sólo mostraba `services`, `findings` y `source` de cada
+  evidencia y ocultaba `target`, `engine_version` y `templates` (id, modo, ruta
+  y hash). La página `/analyst-review` y el PDF de la muestra sí los muestran.
+  Consecuencias conocidas, que no se pueden corregir en las puntuaciones
+  guardadas (son append-only):
+  - En el holdout, las respuestas de C1 a `hol-038` y `hol-057` hablan de una
+    «plantilla inactiva» cuando la evidencia dice `mode: active`; su fidelidad
+    se puntuó 1 por otros motivos y el error no se vio. Lo detectó un segundo
+    revisor al leer la muestra. No afecta a C2.
+  - En `dev-4b-vs-9b`, la respuesta del 4B a `dev-013` perdió fidelidad por
+    «inventar la ruta de la plantilla», pero esa ruta está en la evidencia; su
+    fidelidad debió ser 2. La media del 4B apenas cambia (fidelidad 1,64 en vez
+    de 1,62) y la conclusión se mantiene.
+  La vista ya muestra la evidencia completa.
