@@ -33,6 +33,7 @@ from scripts.generate_analyst_cases import (
     OUTPUT_DIR,
     build_split,
 )
+from scripts.import_analyst_scores import import_scores
 
 APPROVER_KEY = "approver-key-with-at-least-32-characters"
 OUTPUT = {
@@ -281,6 +282,22 @@ async def test_blind_review_api_flow():
     assert again.status_code == 409
     assert failed.status_code == 404  # gate failures are never shown or scored
     assert page.status_code == 200 and "Content-Security-Policy" in page.headers
+
+
+def test_imported_scores_are_append_only_and_must_be_reviewable():
+    run = make_run()
+    store = FakeBenchStore(run)
+    item = {"case_id": "case-1", "answer_id": run.answer_id("case-1", "C1"),
+            "scores": dict.fromkeys(("fidelity", "completeness", "actionability",
+                                     "calibration", "clarity"), 2)}
+    payload = {"run_id": run.run_id, "reviewer": "claude-revisor", "scores": [item]}
+    assert asyncio.run(import_scores(store, payload)) == (1, 0)
+    assert asyncio.run(import_scores(store, payload)) == (0, 1)
+    assert [s.reviewer for s in store.stored] == ["claude-revisor"]
+
+    gate_failure = {**item, "case_id": "case-2", "answer_id": run.answer_id("case-2", "C1")}
+    with pytest.raises(SystemExit):
+        asyncio.run(import_scores(store, {**payload, "scores": [gate_failure]}))
 
 
 def test_prompt_versions_are_selected_per_system():
