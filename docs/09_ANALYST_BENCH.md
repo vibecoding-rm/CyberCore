@@ -281,6 +281,37 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   dice), corregido con pruebas; las ejecuciones anteriores no cambian. La
   publicación `2026-09-29-dev-foundation` quedó con la puerta antigua y se
   descarta; la válida es `2026-09-29-dev-8b-vs-9b`.
+- **Qwen3.5-4B como analista** (el mismo GGUF Q4_K_M del despliegue local),
+  frente al 9B, ambos con v2 en una L4 (`2026-09-29-dev-4b-vs-9b`, informe
+  `reports/analyst/2026-09-29-dev-4b-vs-9b-report.json`):
+
+  | Criterio | C0 | C2 (9B) | C4 (4B) |
+  |---|---|---|---|
+  | Puerta | 40/40 | 40/40 | 39/40 |
+  | Fidelidad | 2,00 | **1,85** | 1,62 |
+  | Completitud | 1,00 | **1,82** | **1,82** |
+  | Accionabilidad | 1,27 | 1,60 | **1,72** |
+  | Calibración | 1,10 | **2,00** | **2,00** |
+  | Claridad | 1,00 | **1,98** | 1,97 |
+  | Total de las puntuadas | 6,38 | **9,25** | 9,13 |
+  | Total (fallo de puerta = 0) | 6,38 | **9,25** | 8,90 |
+  | Fidelidad 1 | 0 | **6** | 15 |
+  | Latencia media (L4) | — | 15,6 s | **10,9 s** |
+
+  El 4B explica casi igual que el 9B y ordena mejor las acciones, pero es
+  menos fiel: copia mal identificadores de evidencia y un puerto en el texto,
+  vuelve a razonar los backports al revés, dice que Nuclei «confirmó» o que
+  se ejecutó «sobre datos simulados» e inventa la ruta de una plantilla.
+  Además suspende la puerta una vez (`dev-036`: da por no vulnerable un
+  candidato y deja vacía la evidencia que falta). No cumpliría el criterio
+  de adopción (100 % de puerta) y queda por detrás del 9B en fidelidad, que
+  es el criterio que más importa. Su latencia en la CPU local no se ha medido
+  con este prompt.
+  **Cautela sobre el ciego:** el 9B genera de forma determinista y sus 40
+  respuestas son idénticas a las de `2026-09-29-dev-8b-vs-9b`, igual que las
+  de C0; se reutilizaron sus puntuaciones (misma respuesta, misma nota) y
+  sólo se puntuaron las 39 del 4B, así que el revisor sabía qué sistema
+  estaba puntuando.
 
 ## Limitaciones conocidas
 

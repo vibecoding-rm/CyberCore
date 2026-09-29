@@ -38,6 +38,13 @@ BASE_MODELS = {
         "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
         "qwen3.5:9b",
     ),
+    # Same file as models/ in the local deployment (M0 on 2026-09-25).
+    "qwen3.5-4b": (
+        "unsloth/Qwen3.5-4B-GGUF",
+        "Qwen3.5-4B-Q4_K_M.gguf",
+        "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+        "qwen3.5:4b",
+    ),
     # Cisco Foundation AI, Llama 3.1 8B base; official Q4_K_M quantization.
     "foundation-sec-1.1": (
         "fdtn-ai/Foundation-Sec-1.1-8B-Instruct-Q4_K_M-GGUF",
