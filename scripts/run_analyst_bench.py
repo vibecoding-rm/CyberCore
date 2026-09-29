@@ -107,7 +107,7 @@ def log_holdout(run_id: str, systems: list[str], reason: str) -> None:
     if not HOLDOUT_LOG.exists():
         HOLDOUT_LOG.write_text(
             "# Registro de uso del holdout de Analyst-Bench\n\n"
-            "Cada ejecución sobre `config/analyst_bench/holdout.jsonl` se anota aquí antes\n"
+            "Cada ejecución sobre un holdout (`config/analyst_bench/holdout*.jsonl`) se anota aquí antes\n"
             "de producir respuestas. Si un resultado motiva cambiar prompt, modelo o datos,\n"
             "el holdout queda gastado y se genera otro con familias nuevas.\n\n"
             "| Fecha | Run | Sistemas | Motivo |\n|---|---|---|---|\n",
@@ -150,7 +150,7 @@ def parse_llm(values: list[str]) -> dict[str, tuple[str, str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--split", choices=["development", "holdout"])
+    parser.add_argument("--split", choices=["development", "holdout", "holdout2"])
     parser.add_argument("--run-id")
     parser.add_argument("--add-to", type=Path, help="Añade sistemas a una ejecución existente")
     parser.add_argument("--llm", action="append", default=[], metavar="C<n>=<modelo>")
@@ -199,11 +199,11 @@ def main() -> int:
     if args.limit:
         if args.add_to:
             raise SystemExit("--limit no se combina con --add-to")
-        if run.split == "holdout":
+        if run.split.startswith("holdout"):
             raise SystemExit("--limit no se permite en el holdout")
         cases = cases[: args.limit]
         run.results = [r for r in run.results if r.case_id in {c["case_id"] for c in cases}]
-    if run.split == "holdout":
+    if run.split.startswith("holdout"):
         if not args.reason:
             raise SystemExit("El holdout exige --reason (queda registrado)")
         log_holdout(run.run_id, sorted(llm_systems) or ["C0"], args.reason)
