@@ -94,26 +94,28 @@ FAMILIES = [
            "Desbordamiento de búfer en el analizador multipart de mod_lua de Apache HTTP Server",
            kev=False, cvss=9.8),
     # holdout2: generated after fixing protocol v2; no product from an earlier
-    # split. CVSS is left out: the NVD scores were not checked for these rows.
+    # split. Ranges, CVSS 3.1 (NVD primary) and KEV checked against the NVD API
+    # and the CISA KEV feed on 2026-09-29.
     Family("holdout2", "CVE-2019-10149", "exim", "exim", "Exim smtpd", 25,
            ({"version_start_including": "4.87", "version_end_including": "4.91"},),
            "4.89", "4.92", "4.89-2+deb9u3",
            "Ejecución remota de comandos en deliver_message() de Exim (Return of the WIZard)",
-           kev=True, cvss=None),
+           kev=True, cvss=9.8),
     Family("holdout2", "CVE-2017-7494", "samba", "samba", "Samba smbd", 445,
-           ({"version_start_including": "3.5.0", "version_end_excluding": "4.4.14"},
+           ({"version_start_including": "3.5.0", "version_end_excluding": "4.4.0"},
+            {"version_start_including": "4.4.0", "version_end_excluding": "4.4.14"},
             {"version_start_including": "4.5.0", "version_end_excluding": "4.5.10"},
             {"version_start_including": "4.6.0", "version_end_excluding": "4.6.4"}),
            "4.5.8", "4.6.4", "4.5.8-Debian",
            "Carga de una biblioteca compartida subida a un recurso escribible de Samba (SambaCry)",
-           kev=True, cvss=None),
+           kev=True, cvss=9.8),
     Family("holdout2", "CVE-2022-24834", "redis", "redis", "Redis key-value store", 6379,
            ({"version_start_including": "2.6.0", "version_end_excluding": "6.0.20"},
             {"version_start_including": "6.2.0", "version_end_excluding": "6.2.13"},
             {"version_start_including": "7.0.0", "version_end_excluding": "7.0.12"}),
            "7.0.11", "7.0.12", "7.0.11-1ubuntu1",
            "Desbordamiento de montículo en la biblioteca cjson de los scripts Lua de Redis",
-           kev=False, cvss=None),
+           kev=False, cvss=8.8),
 ]
 
 INVENTORY = ("real", "simulated")
