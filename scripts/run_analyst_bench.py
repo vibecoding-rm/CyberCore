@@ -195,6 +195,8 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=None, help="Sólo los N primeros casos (pruebas)")
     parser.add_argument("--reason", default="", help="Obligatorio en el holdout")
     parser.add_argument("--regate", type=Path, help="Reaplica la puerta a una ejecución guardada")
+    parser.add_argument("--allow-errors", action="store_true",
+                        help="Guarda la ejecución aunque haya respuestas con error")
     args = parser.parse_args()
 
     if args.regate:
@@ -253,6 +255,11 @@ def main() -> int:
         endpoint = urlsplit(args.base_url or get_settings().llamacpp_base_url).hostname
         run.systems[system] = SystemInfo(kind="llm", model=model, prompt=prompt,
                                          endpoint=endpoint, hardware=args.hardware)
+    errors = sum(bool(a.error) for answers in new_answers.values() for a in answers.values())
+    if errors and not args.allow_errors:
+        print(f"{errors} respuestas con error (p. ej. el endpoint se cayó): no se guarda la ejecución. "
+              f"Relanza el mismo comando para reintentarlas, o usa --allow-errors para guardarlas así.")
+        return 1
     for result in run.results:
         for system, answers in new_answers.items():
             result.answers[system] = answers[result.case_id]
