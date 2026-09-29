@@ -172,6 +172,16 @@ La tasa de respaldo se informa pero no tiene umbral: no se ha decidido. En el
 siguiente holdout decide la adopción v2; la v1 se sigue publicando para
 comparar con las rondas anteriores.
 
+**Holdout `holdout2` (definido el 2026-09-29, después de fijar el protocolo
+v2).** 60 casos (`config/analyst_bench/holdout2.jsonl`, identificadores
+`analyst-ho2-NNN`) con tres familias cuyo CVE y producto no aparecen en
+ningún split anterior: CVE-2019-10149 (Exim, 25/tcp), CVE-2017-7494 (Samba,
+445/tcp, tres rangos) y CVE-2022-24834 (Redis, 6379/tcp, tres rangos). El
+CVSS se deja fuera en las tres. Los rangos y la marca KEV se revisan con NVD y
+CISA antes de sellarlo; una vez sellado no se modifican. El ejecutor lo trata
+como holdout (`--reason` obligatorio, anotado en `HOLDOUT_LOG.md`). El holdout
+`holdout` de 2026-09-25 queda gastado y se conserva sin cambios.
+
 ## Cómo usarlo
 
 ```bash

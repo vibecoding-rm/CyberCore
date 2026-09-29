@@ -26,7 +26,13 @@ from app.core.evidence_bundle import evidence_case_integrity_issues
 from app.llm.base import LLMClientError, ModelCompletion
 from app.main import app
 from app.storage.postgres_analyst_bench import DuplicateScoreError
-from scripts.generate_analyst_cases import BENCH_SIGNER, CASES_PER_SPLIT, OUTPUT_DIR, build_split
+from scripts.generate_analyst_cases import (
+    BENCH_SIGNER,
+    CASES_PER_SPLIT,
+    FAMILIES,
+    OUTPUT_DIR,
+    build_split,
+)
 
 APPROVER_KEY = "approver-key-with-at-least-32-characters"
 OUTPUT = {
@@ -58,6 +64,12 @@ def test_committed_cases_match_the_generator_and_manifest():
 def test_splits_share_no_family_and_every_bundle_verifies():
     families = {split: {c["family"] for c in load_split(split)} for split in CASES_PER_SPLIT}
     assert not families["development"] & families["holdout"]
+    # holdout2 shares no CVE and no product with any earlier split.
+    earlier = [f for f in FAMILIES if f.split != "holdout2"]
+    for family in (f for f in FAMILIES if f.split == "holdout2"):
+        assert family.cve not in {f.cve for f in earlier}
+        assert (family.vendor, family.product) not in {(f.vendor, f.product) for f in earlier}
+    assert families["holdout2"] == {f.cve for f in FAMILIES if f.split == "holdout2"}
     for split in CASES_PER_SPLIT:
         statuses = {c["finding_status"] for c in load_split(split)}
         assert statuses == {"candidate", "probable", "confirmed"}

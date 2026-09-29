@@ -5,8 +5,8 @@ ranges -> VulnerabilityMatcher -> EvidenceGapAnalyzer (with Nuclei validation)
 -> build_evidence_case. Only the inputs are synthetic (inventories, Nuclei
 results, catalogue rows); status, gaps and conclusion come from the engine.
 
-Development and holdout use different CVE families, so no CVE, product or
-advisory appears on both sides (docs/09_ANALYST_BENCH.md). Bundles are signed
+Development and each holdout use different CVE families, so no CVE, product
+or advisory appears on both sides (docs/09_ANALYST_BENCH.md). Bundles are signed
 with a key derived from a public seed: it proves nothing about origin and
 must never be used outside the bench.
 
@@ -40,7 +40,10 @@ GENERATED_AT = datetime(2026, 9, 25, 12, tzinfo=timezone.utc)
 BENCH_SIGNER = EvidenceSigner(
     Ed25519PrivateKey.from_private_bytes(hashlib.sha256(b"cybercore-analyst-bench-v1").digest())
 )
-CASES_PER_SPLIT = {"development": 40, "holdout": 60}
+CASES_PER_SPLIT = {"development": 40, "holdout": 60, "holdout2": 60}
+# Splits keep the date they were generated on, so older files stay byte-identical.
+SPLIT_GENERATED_AT = {"holdout2": datetime(2026, 9, 29, 12, tzinfo=timezone.utc)}
+CASE_PREFIX = {"development": "dev", "holdout": "hol", "holdout2": "ho2"}
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,27 @@ FAMILIES = [
            ({"version_end_including": "2.4.51"},), "2.4.51", "2.4.52", "2.4.51-1~deb11u1",
            "Desbordamiento de búfer en el analizador multipart de mod_lua de Apache HTTP Server",
            kev=False, cvss=9.8),
+    # holdout2: generated after fixing protocol v2; no product from an earlier
+    # split. CVSS is left out: the NVD scores were not checked for these rows.
+    Family("holdout2", "CVE-2019-10149", "exim", "exim", "Exim smtpd", 25,
+           ({"version_start_including": "4.87", "version_end_including": "4.91"},),
+           "4.89", "4.92", "4.89-2+deb9u3",
+           "Ejecución remota de comandos en deliver_message() de Exim (Return of the WIZard)",
+           kev=True, cvss=None),
+    Family("holdout2", "CVE-2017-7494", "samba", "samba", "Samba smbd", 445,
+           ({"version_start_including": "3.5.0", "version_end_excluding": "4.4.14"},
+            {"version_start_including": "4.5.0", "version_end_excluding": "4.5.10"},
+            {"version_start_including": "4.6.0", "version_end_excluding": "4.6.4"}),
+           "4.5.8", "4.6.4", "4.5.8-Debian",
+           "Carga de una biblioteca compartida subida a un recurso escribible de Samba (SambaCry)",
+           kev=True, cvss=None),
+    Family("holdout2", "CVE-2022-24834", "redis", "redis", "Redis key-value store", 6379,
+           ({"version_start_including": "2.6.0", "version_end_excluding": "6.0.20"},
+            {"version_start_including": "6.2.0", "version_end_excluding": "6.2.13"},
+            {"version_start_including": "7.0.0", "version_end_excluding": "7.0.12"}),
+           "7.0.11", "7.0.12", "7.0.11-1ubuntu1",
+           "Desbordamiento de montículo en la biblioteca cjson de los scripts Lua de Redis",
+           kev=False, cvss=None),
 ]
 
 INVENTORY = ("real", "simulated")
@@ -136,12 +160,17 @@ def evidence_id(*parts: str) -> str:
     return "EVD-" + hashlib.sha256("|".join(parts).encode()).hexdigest()[:12].upper()
 
 
-def sealed(eid: str, source: str, target: str, data: dict[str, Any], minutes: int) -> Evidence:
+def generated_at(family: Family) -> datetime:
+    return SPLIT_GENERATED_AT.get(family.split, GENERATED_AT)
+
+
+def sealed(eid: str, source: str, target: str, data: dict[str, Any], minutes: int,
+           at: datetime) -> Evidence:
     return Evidence(
         evidence_id=eid,
         source=source,
         target=target,
-        collected_at=GENERATED_AT - timedelta(minutes=minutes),
+        collected_at=at - timedelta(minutes=minutes),
         data=data,
         sha256=evidence_sha256(data),
     )
@@ -161,7 +190,8 @@ def inventory_evidence(family: Family, case_key: str, target: str, inventory: st
     if inventory == "simulated":
         data["source"] = "simulated"
         source = "get_mock_inventory"
-    return sealed(evidence_id(case_key, "inventory"), source, target, data, minutes=30)
+    return sealed(evidence_id(case_key, "inventory"), source, target, data, minutes=30,
+                  at=generated_at(family))
 
 
 def validation_evidence(family: Family, case_key: str, target: str, validation: str):
@@ -185,7 +215,8 @@ def validation_evidence(family: Family, case_key: str, target: str, validation: 
         }],
         "findings": findings,
     }
-    return [sealed(evidence_id(case_key, "nuclei"), "run_nuclei_safe", target, data, minutes=10)]
+    return [sealed(evidence_id(case_key, "nuclei"), "run_nuclei_safe", target, data, minutes=10,
+                   at=generated_at(family))]
 
 
 def snapshot(family: Family) -> dict[str, Any]:
@@ -215,10 +246,10 @@ async def build_case(family: Family, scenario: tuple[str, str, str, str], index:
         validation_evidence=checks,
     )
     bundle = build_evidence_case(
-        assessment, inv, checks, info, BENCH_SIGNER, generated_at=GENERATED_AT
+        assessment, inv, checks, info, BENCH_SIGNER, generated_at=generated_at(family)
     )
     return {
-        "case_id": f"analyst-{family.split[:3]}-{index + 1:03d}",
+        "case_id": f"analyst-{CASE_PREFIX[family.split]}-{index + 1:03d}",
         "split": family.split,
         "family": family.cve,
         "scenario": dict(zip(("inventory", "version", "advisory", "validation"), scenario)),

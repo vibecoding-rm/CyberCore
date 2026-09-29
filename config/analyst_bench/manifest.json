@@ -30,6 +30,20 @@
         "probable": 19
       },
       "sha256": "d2f17c02d3c73e12538e12057b17fceae1c496acc9139dfc52cf4e00ccf5ccb3"
+    },
+    "holdout2": {
+      "cases": 60,
+      "families": [
+        "CVE-2017-7494",
+        "CVE-2019-10149",
+        "CVE-2022-24834"
+      ],
+      "finding_status": {
+        "candidate": 35,
+        "confirmed": 4,
+        "probable": 21
+      },
+      "sha256": "b535a77b83571b18c122b5ea511e6f0ea5514367085ed200b530d762e28d2320"
     }
   }
 }

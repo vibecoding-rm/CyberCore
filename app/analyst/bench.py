@@ -64,7 +64,7 @@ class AnalystRun(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(pattern=RUN_ID_PATTERN)
-    split: Literal["development", "holdout"]
+    split: Literal["development", "holdout", "holdout2"]
     cases_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     created_at: datetime
     salt: str = Field(pattern=r"^[0-9a-f]{32}$")
