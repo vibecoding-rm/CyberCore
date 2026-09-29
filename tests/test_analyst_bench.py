@@ -161,6 +161,29 @@ def test_report_counts_gate_failures_as_zero_and_applies_adoption_criteria():
     assert report["agreement"]["exact"] == 1.0
 
 
+def test_pipeline_report_delivers_c0_when_the_gate_suspends_the_model():
+    run = make_run()
+    scores = [score(run, "case-1", "C0", r, 1) for r in ("a", "b")]
+    scores += [score(run, "case-2", "C0", r, 1) for r in ("a", "b")]
+    scores += [score(run, "case-1", "C1", r, 2) for r in ("a", "b")]
+    report = build_report(run, scores)
+
+    pipeline = report["pipeline"]["C1"]
+    assert pipeline["fallback_to_c0"] == ["case-2"] and pipeline["fallback_rate"] == 0.5
+    assert pipeline["gate_failures"] == []
+    assert pipeline["mean_total"] == 7.5  # 10 from the model, 5 from the C0 fallback
+    assert report["adoption"]["C1"]["meets_criteria"] is False  # protocol v1
+    assert report["adoption_pipeline"]["C1"] == {"complete": True, "meets_criteria": True, "reasons": []}
+
+
+def test_pipeline_counts_fidelity_zero_of_the_delivered_answer():
+    run = make_run()
+    scores = [score(run, "case-1", "C0", "a", 2), score(run, "case-2", "C0", "a", 0),
+              score(run, "case-1", "C1", "a", 2)]
+    pipeline = build_report(run, scores)["pipeline"]["C1"]
+    assert pipeline["fidelity_zero"] == ["case-2"]
+
+
 # --- LLM call -------------------------------------------------------------------
 
 def test_response_schema_requires_every_field_without_refs():

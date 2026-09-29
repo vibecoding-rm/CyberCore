@@ -240,15 +240,68 @@ def build_report(run: AnalystRun, scores: list[StoredScore]) -> dict[str, Any]:
             ),
             "mean_latency_ms": _mean(latencies),
         }
+    pipelines = {
+        name: _pipeline(run, name, by_answer) for name in systems if name != "C0" and "C0" in systems
+    }
     return {
         "run_id": run.run_id,
         "split": run.split,
         "systems": systems,
         "agreement": _agreement(scores),
+        # Protocol v1: the model's own answers (gate failures count as failures).
         "adoption": {
             name: _adoption(systems[name], systems.get("C0"), len(run.results))
             for name in systems if name != "C0"
         },
+        # Protocol v2 (docs/09, next round): what the operator receives. The gate
+        # always runs; a suspended answer is replaced by the C0 template.
+        "pipeline": pipelines,
+        "adoption_pipeline": {
+            name: _adoption(pipeline, systems.get("C0"), len(run.results))
+            for name, pipeline in pipelines.items()
+        },
+    }
+
+
+def _pipeline(
+    run: AnalystRun, system: str, by_answer: dict[tuple[str, str], list[StoredScore]],
+) -> dict[str, Any]:
+    """Scores of the answer delivered per case: the model's, or C0's when the gate suspends it."""
+    delivered: list[tuple[str, str]] = []
+    for result in run.results:
+        answer = result.answers.get(system)
+        if answer is None:
+            continue
+        delivered.append((result.case_id, system if answer.passed_gate else "C0"))
+    fallback = [case_id for case_id, source in delivered if source == "C0"]
+    gate_fail = [
+        case_id for case_id, source in delivered
+        if not next(r for r in run.results if r.case_id == case_id).answers[source].passed_gate
+    ]
+    per_case: dict[str, dict[str, float]] = {}
+    reviewers_per_case: list[int] = []
+    for case_id, source in delivered:
+        reviews = by_answer.get((case_id, source), [])
+        if case_id not in gate_fail and reviews:
+            reviewers_per_case.append(len(reviews))
+            per_case[case_id] = {
+                c: statistics.mean(getattr(r.scores, c) for r in reviews) for c in CRITERIA
+            }
+    totals = [sum(v.values()) for v in per_case.values()] + [0.0] * len(gate_fail)
+    return {
+        "cases": len(delivered),
+        "fallback_to_c0": fallback,
+        "fallback_rate": round(len(fallback) / len(delivered), 3) if delivered else None,
+        "gate_passed": len(delivered) - len(gate_fail),
+        "gate_failures": gate_fail,
+        "scored_cases": len(per_case),
+        "min_reviewers": min(reviewers_per_case) if reviewers_per_case else 0,
+        "criteria": {c: _mean([v[c] for v in per_case.values()]) for c in CRITERIA},
+        "mean_total": _mean(totals),
+        "fidelity_zero": sorted(
+            case_id for case_id, source in delivered
+            if any(r.scores.fidelity == 0 for r in by_answer.get((case_id, source), []))
+        ),
     }
 
 

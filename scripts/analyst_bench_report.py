@@ -1,5 +1,8 @@
 """Comparative Analyst-Bench report: automatic gate, rubric and adoption criteria.
 
+Adoption is reported under protocol v1 (the model's own answers) and v2 (the
+answer the operator receives: the model's, or C0 when the gate suspends it).
+
     python -m scripts.analyst_bench_report <run_id>
     python -m scripts.analyst_bench_report --file reports/analyst/runs/<run>.json
 
@@ -52,7 +55,13 @@ def main() -> int:
         )
     for name, verdict in report["adoption"].items():
         state = "cumple" if verdict["meets_criteria"] else "no cumple"
-        print(f"{name}: {state} el criterio de adopción"
+        print(f"{name}: {state} el criterio de adopción v1 (modelo)"
+              f"{'' if verdict['complete'] else ' (revisión incompleta)'}: {verdict['reasons']}")
+    for name, verdict in report["adoption_pipeline"].items():
+        pipeline = report["pipeline"][name]
+        state = "cumple" if verdict["meets_criteria"] else "no cumple"
+        print(f"{name}: {state} el criterio de adopción v2 (sistema, respaldo en C0 en "
+              f"{len(pipeline['fallback_to_c0'])} casos, media {pipeline['mean_total']})"
               f"{'' if verdict['complete'] else ' (revisión incompleta)'}: {verdict['reasons']}")
     print(f"Informe: {target}")
     return 0

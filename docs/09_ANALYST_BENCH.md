@@ -155,6 +155,23 @@ el del modelo. Es una modificación del protocolo de evaluación: se fija antes
 de evaluar y se valida sobre un holdout nuevo, generado después de fijar la
 regla, con familias de CVE que no se hayan usado para comparar prompts.
 
+**Protocolo v2 (implementado el 2026-09-29, antes de generar el holdout
+nuevo).** El informe (`build_report`) conserva la adopción v1 (`adoption`,
+respuestas del modelo) y añade:
+
+- `pipeline`: por cada candidato, la respuesta entregada en cada caso es la
+  del modelo si pasa la puerta y la de C0 si no; se informa `fallback_to_c0`
+  y `fallback_rate`, la puerta y la fidelidad 0 de lo entregado, y las medias
+  por criterio y total con las puntuaciones de lo entregado.
+- `adoption_pipeline`: los mismos cuatro criterios aplicados a lo entregado
+  (100 % de puerta en lo entregado, ninguna fidelidad 0 en lo entregado, +1
+  punto sobre C0 y mejora en al menos tres criterios, latencia y RAM
+  registradas).
+
+La tasa de respaldo se informa pero no tiene umbral: no se ha decidido. En el
+siguiente holdout decide la adopción v2; la v1 se sigue publicando para
+comparar con las rondas anteriores.
+
 ## Cómo usarlo
 
 ```bash
