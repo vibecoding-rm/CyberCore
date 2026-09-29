@@ -206,6 +206,42 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   (familias de CVE nuevas) con al menos un revisor humano.
 - Generar los casos destapó un fallo del motor: una reproducción de Nuclei en
   otra IP confirmaba el hallazgo. Corregido en `assess_nuclei_validation`.
+- Primera ejecución en holdout `2026-09-25-holdout-9b` (C0, C1 = 9B con v1,
+  C2 = 9B con v2, L4). Puntuada a ciegas por `claude-revisor` (179 respuestas),
+  informe `reports/analyst/2026-09-25-holdout-9b-report.json`:
+
+  | Criterio | C0 | C1 (v1) | C2 (v2) |
+  |---|---|---|---|
+  | Puerta | 60/60 | 60/60 | 59/60 |
+  | Fidelidad | 2,00 (1,50*) | 1,57 | 1,90 |
+  | Completitud | 1,00 | **1,93** | 1,76 |
+  | Accionabilidad | 1,47 | **1,78** | 1,73 |
+  | Calibración | 1,08 | 1,65 | **2,00** |
+  | Claridad | 1,00 | 1,98 | **2,00** |
+  | Total (fallo de puerta = 0) | 6,55 | 8,92 | **9,23** |
+  | Fidelidad 0 / fidelidad 1 | 0 / 0 | 0 / 26 | 0 / 6 |
+  | Latencia media (L4) | — | 29 s | 26 s |
+
+  \* Incoherencia del revisor: en desarrollo C0 recibió fidelidad 1 cuando
+  llama «validación independiente» a una prueba negativa, pasiva o en otra IP;
+  en el holdout se penalizó en completitud. Con el criterio de desarrollo, C0
+  bajaría a 1,50 de fidelidad y 6,05 de total. Las puntuaciones son
+  append-only y no se han rehecho; no cambia ninguna conclusión.
+
+  **C2 no cumple el criterio de adopción**: en `analyst-hol-012` copia mal un
+  identificador (`EVD-B9CC9DC997A1` por `EVD-B9CC9DC6997A`) y la puerta lo
+  suspende con razón. Aparte de eso, C2 sería el mejor: sin fidelidad 0, pocas
+  imprecisiones y calibración perfecta; la ventaja de v2 sobre v1 en
+  desarrollo (+0,75) se reduce a +0,31 en holdout, pero se mantiene.
+  **C1 cumple formalmente los criterios 1–3** (sin fidelidad 0, +2,4 sobre C0,
+  mejora en cuatro criterios), pero con 26 imprecisiones de fidelidad: sigue
+  usando backports para dudar de pruebas activas positivas o para no descartar
+  versiones ya corregidas, dice que una prueba «no se ejecutó» sobre el objetivo
+  cuando sólo acertó en otra IP y llama «baja» a la confianza de un probable.
+  Ninguno está adoptado: falta el revisor humano obligatorio en holdout y
+  medir latencia y RAM en el equipo de 16 GB (criterio 4). Este holdout ya se
+  ha usado para comparar v1 y v2; si se cambia el prompt a partir de estos
+  resultados, habrá que generar otro con familias nuevas.
 
 ## Limitaciones conocidas
 

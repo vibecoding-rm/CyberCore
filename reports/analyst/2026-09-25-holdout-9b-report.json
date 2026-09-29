@@ -1,0 +1,98 @@
+{
+  "run_id": "2026-09-25-holdout-9b",
+  "split": "holdout",
+  "systems": {
+    "C0": {
+      "info": {
+        "kind": "template"
+      },
+      "cases": 60,
+      "gate_passed": 60,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 60,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 2,
+        "completeness": 1,
+        "actionability": 1.467,
+        "calibration": 1.083,
+        "clarity": 1
+      },
+      "mean_total": 6.55,
+      "fidelity_zero": [],
+      "mean_latency_ms": 0.0
+    },
+    "C1": {
+      "info": {
+        "kind": "llm",
+        "model": "qwen3.5:9b",
+        "prompt": "v1",
+        "endpoint": "vibecoding-rm--cybercore-llm-serve.modal.run",
+        "hardware": "Modal L4 GPU, llama.cpp Q4_K_M"
+      },
+      "cases": 60,
+      "gate_passed": 60,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 60,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.567,
+        "completeness": 1.933,
+        "actionability": 1.783,
+        "calibration": 1.65,
+        "clarity": 1.983
+      },
+      "mean_total": 8.917,
+      "fidelity_zero": [],
+      "mean_latency_ms": 29432.308
+    },
+    "C2": {
+      "info": {
+        "kind": "llm",
+        "model": "qwen3.5:9b",
+        "prompt": "v2",
+        "endpoint": "vibecoding-rm--cybercore-llm-serve.modal.run",
+        "hardware": "Modal L4 GPU, llama.cpp Q4_K_M"
+      },
+      "cases": 60,
+      "gate_passed": 59,
+      "gate_failures": [
+        "analyst-hol-012"
+      ],
+      "errors": [],
+      "scored_cases": 59,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.898,
+        "completeness": 1.763,
+        "actionability": 1.729,
+        "calibration": 2,
+        "clarity": 2
+      },
+      "mean_total": 9.233,
+      "fidelity_zero": [],
+      "mean_latency_ms": 26260.928
+    }
+  },
+  "agreement": {
+    "compared_scores": 0,
+    "exact": null,
+    "within_one": null
+  },
+  "adoption": {
+    "C1": {
+      "complete": false,
+      "meets_criteria": true,
+      "reasons": []
+    },
+    "C2": {
+      "complete": false,
+      "meets_criteria": false,
+      "reasons": [
+        "1 respuestas no pasan la puerta automática"
+      ]
+    }
+  }
+}
