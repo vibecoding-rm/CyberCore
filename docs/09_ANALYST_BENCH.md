@@ -145,6 +145,16 @@ Un analista LLM se adopta sólo si, en el holdout sellado:
 Si C1 y C2 no superan a C0, CyberCore sigue con las explicaciones del motor y
 no se entrena el adaptador `analyst`.
 
+**Cambio propuesto para la siguiente ronda (2026-09-29, no aplicado al
+holdout `2026-09-25-holdout-9b`).** Redefinir el criterio 1 a nivel del
+sistema completo: toda respuesta del modelo pasa obligatoriamente por la
+puerta; cuando la puerta la suspende, se entrega la plantilla C0 y la salida
+original no se expone al operador. El criterio medirá entonces el
+comportamiento del pipeline (modelo + puerta + plantilla de respaldo), no sólo
+el del modelo. Es una modificación del protocolo de evaluación: se fija antes
+de evaluar y se valida sobre un holdout nuevo, generado después de fijar la
+regla, con familias de CVE que no se hayan usado para comparar prompts.
+
 ## Cómo usarlo
 
 ```bash
@@ -270,6 +280,18 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   medir latencia y RAM en el equipo de 16 GB (criterio 4). Este holdout ya se
   ha usado para comparar v1 y v2; si se cambia el prompt a partir de estos
   resultados, habrá que generar otro con familias nuevas.
+- **Decisión sobre el holdout `2026-09-25-holdout-9b` (2026-09-29, del
+  usuario): C2 no se adopta.** El candidato incumple el criterio 1 con la
+  definición vigente por el fallo de puerta de `hol-012`. No se redefine el
+  criterio después de ver ese fallo: sería un cambio post hoc, y este holdout
+  ya se usó para comparar prompts. La alternativa de medir el sistema
+  completo (puerta con respaldo en C0) queda como propuesta para la siguiente
+  ronda, con un holdout nuevo (ver «Criterio de adopción»). En la muestra de
+  revisión, un segundo revisor (otro modelo, pendiente de confirmación
+  humana) y `claude-revisor` coinciden en que C2 no tiene fidelidad 0 una vez
+  aplicada la regla de la guía (el 0 sólo para afirmaciones sin respaldo, no
+  por estilo); las fidelidades 0 que quedan son de C1 (`hol-057`, «plantilla
+  inactiva» frente a `mode: active`, y el caso dudoso `hol-001`).
 - **Latencia y RAM en el equipo de 16 GB** (criterio 4; 2026-09-29,
   `reports/analyst/2026-09-29-cpu-9b-v2-latency.json`): 9B con v2 en la CPU
   local (Ryzen 5 5500, llama.cpp, contenedor limitado a 8 GB), 10 casos de
