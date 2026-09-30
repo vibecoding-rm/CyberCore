@@ -1,0 +1,1446 @@
+{
+ "run_id": "2026-09-29-holdout2-9b",
+ "reviewer": "claude-revisor",
+ "scores": [
+  {
+   "case_id": "analyst-ho2-001",
+   "answer_id": "01ea031dfd6481ee",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Recomienda comprobar si es un backport que corrige el fallo pese a una prueba activa positiva."
+  },
+  {
+   "case_id": "analyst-ho2-001",
+   "answer_id": "74457474b7e3ac4f",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 2,
+    "clarity": 1
+   },
+   "comment": "Sin acciones recomendadas; la confianza alta está justificada."
+  },
+  {
+   "case_id": "analyst-ho2-002",
+   "answer_id": "ca733c30f16d9410",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Explica la contradicción y sus dos causas posibles."
+  },
+  {
+   "case_id": "analyst-ho2-002",
+   "answer_id": "2516338d4cb42af1",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "Acción vaga (revisar manualmente)."
+  },
+  {
+   "case_id": "analyst-ho2-003",
+   "answer_id": "df5a6e4361839ca5",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-003",
+   "answer_id": "a48398f300836639",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-004",
+   "answer_id": "12e02510b8314bad",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-004",
+   "answer_id": "e1efd64f815bc19c",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Interpreta bien la prueba negativa."
+  },
+  {
+   "case_id": "analyst-ho2-005",
+   "answer_id": "4de270d52e8d1063",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción algo que el motor no marcó y especula con falsos positivos de la plantilla."
+  },
+  {
+   "case_id": "analyst-ho2-005",
+   "answer_id": "f6f33c4668301422",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-006",
+   "answer_id": "568d4ab13f1e47e7",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "La validación independiente sólo aparece en el resumen, no en la evidencia que falta."
+  },
+  {
+   "case_id": "analyst-ho2-006",
+   "answer_id": "be325076fa882820",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-007",
+   "answer_id": "4dd209b72198af5a",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta el inventario simulado como una contradicción, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-007",
+   "answer_id": "081f5111139fd448",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-008",
+   "answer_id": "db902fdd423f1e08",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 2,
+    "clarity": 1
+   },
+   "comment": "Sin acciones recomendadas."
+  },
+  {
+   "case_id": "analyst-ho2-008",
+   "answer_id": "82b4c9f7d21176e7",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-009",
+   "answer_id": "6732208f38ee76cf",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-009",
+   "answer_id": "1bd339c7be803c21",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "Acción vaga (revisar manualmente)."
+  },
+  {
+   "case_id": "analyst-ho2-010",
+   "answer_id": "bfd7013c03eb2f73",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-010",
+   "answer_id": "a661f660cc309842",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-011",
+   "answer_id": "0b7372db0419b593",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-011",
+   "answer_id": "90233f1e82491e61",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 1,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Sólo recomienda el parche; falta volver a validar y restringir el acceso."
+  },
+  {
+   "case_id": "analyst-ho2-012",
+   "answer_id": "5fc722a91071368e",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-012",
+   "answer_id": "c40fda5352071786",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-013",
+   "answer_id": "ce24fb25cd9aa98e",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-013",
+   "answer_id": "327b3a2b587ac534",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-014",
+   "answer_id": "d45cd594dc27c818",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Sugiere comprobar un backport pese a la prueba activa positiva y achaca un posible falso positivo al inventario simulado."
+  },
+  {
+   "case_id": "analyst-ho2-014",
+   "answer_id": "1077e95186173872",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-015",
+   "answer_id": "b053ced07d938b43",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Usa los backports para dudar de una prueba activa positiva."
+  },
+  {
+   "case_id": "analyst-ho2-015",
+   "answer_id": "208d10147f4b6996",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 2,
+    "clarity": 1
+   },
+   "comment": "Sin acciones recomendadas."
+  },
+  {
+   "case_id": "analyst-ho2-016",
+   "answer_id": "fab1d7fbfdc5aa92",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 1,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Propone cerrar como falso positivo sólo con confirmar la versión, sin resolver el positivo de Nuclei."
+  },
+  {
+   "case_id": "analyst-ho2-016",
+   "answer_id": "4b5154eca095ea6a",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "Acción vaga (revisar manualmente)."
+  },
+  {
+   "case_id": "analyst-ho2-017",
+   "answer_id": "94ce4293c0e91776",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-017",
+   "answer_id": "da3d1f78082684c0",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-018",
+   "answer_id": "65681319263f3c77",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-018",
+   "answer_id": "d92a3c9ece9dc2a1",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-019",
+   "answer_id": "22bdf15da87b2988",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-019",
+   "answer_id": "87f538c1bfc0f108",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-020",
+   "answer_id": "dfa9bad4ac1e35d3",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-020",
+   "answer_id": "10013aa15f744518",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «prueba activa» a una plantilla pasiva; omite en la evidencia que falta el advisory autoritativo (sólo aparece en una acción)."
+  },
+  {
+   "case_id": "analyst-ho2-021",
+   "answer_id": "91e011c826977bf4",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Inventa una contradicción («declara un servicio real» con fuente simulada) y achaca un posible falso positivo al inventario."
+  },
+  {
+   "case_id": "analyst-ho2-021",
+   "answer_id": "66cf1bee84065efe",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-022",
+   "answer_id": "973e8c9824c09b73",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-022",
+   "answer_id": "93e2ea5913c4b8ad",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-023",
+   "answer_id": "9cce913060227264",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-023",
+   "answer_id": "c54c2145ee8238ad",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Atribuye el estado probable en parte a la detección pasiva, que el motor dice que no cuenta como validación."
+  },
+  {
+   "case_id": "analyst-ho2-024",
+   "answer_id": "220d234623650fc2",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-024",
+   "answer_id": "6e2a5537c4fb13bb",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-025",
+   "answer_id": "ab1d68474ae9590e",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-025",
+   "answer_id": "6b4db61cfc8d879b",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "El resumen llama «prueba activa» a una detección pasiva."
+  },
+  {
+   "case_id": "analyst-ho2-026",
+   "answer_id": "52aa07347ab4a415",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP; la validación independiente falta en la evidencia que falta."
+  },
+  {
+   "case_id": "analyst-ho2-026",
+   "answer_id": "5f89cb351054d3b5",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-027",
+   "answer_id": "00fc3f8ed38d5224",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-027",
+   "answer_id": "ed2bc896d7eb8932",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-028",
+   "answer_id": "76fa77a9117d4d7a",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-028",
+   "answer_id": "7346f1c8d1644860",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Atribuye el estado candidate a la prueba negativa (el motor lo atribuye a la falta de rangos); omite la validación independiente en la evidencia que falta."
+  },
+  {
+   "case_id": "analyst-ho2-029",
+   "answer_id": "cd9e5e1f680b3a68",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "La validación independiente no aparece en la evidencia que falta (sólo como acción condicionada)."
+  },
+  {
+   "case_id": "analyst-ho2-029",
+   "answer_id": "6632ff4ee1af525b",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-030",
+   "answer_id": "6a93d7b50c41420c",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-030",
+   "answer_id": "988f92d35fd352cd",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-031",
+   "answer_id": "88a486ed394bc199",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-031",
+   "answer_id": "c65960188e4be800",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-032",
+   "answer_id": "74978bf0bc1f8c4d",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP y especula con falsos positivos o un escaneo incompleto."
+  },
+  {
+   "case_id": "analyst-ho2-032",
+   "answer_id": "dff54f17190400c0",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-033",
+   "answer_id": "35fd39182afae35a",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-033",
+   "answer_id": "1ba76df3ab460f70",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «prueba activa» a una detección pasiva (aunque luego lo aclara)."
+  },
+  {
+   "case_id": "analyst-ho2-034",
+   "answer_id": "f668b32f5b8a71ef",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-034",
+   "answer_id": "5d2043d146a46241",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Atribuye el estado probable en parte a la detección pasiva, que el motor dice que no cuenta como validación."
+  },
+  {
+   "case_id": "analyst-ho2-035",
+   "answer_id": "b9ad322865335137",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Omite la validación independiente en la evidencia que falta; sólo recomienda parchear, sin saber si la versión está afectada."
+  },
+  {
+   "case_id": "analyst-ho2-035",
+   "answer_id": "bcf7ad6d862724e4",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-036",
+   "answer_id": "a3b9f36376321a43",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-036",
+   "answer_id": "3864af285f09bf5b",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No menciona que la prueba activa fue negativa."
+  },
+  {
+   "case_id": "analyst-ho2-037",
+   "answer_id": "df1ded57df90d24c",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-037",
+   "answer_id": "a98a7ab8d5601024",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-038",
+   "answer_id": "323b6f2d9ed7e9c7",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-038",
+   "answer_id": "ee62b855c16e0f1d",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-039",
+   "answer_id": "d3281eb68a3aafbe",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-039",
+   "answer_id": "5474f408cbea1d28",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "El resumen llama «prueba activa» a una detección pasiva."
+  },
+  {
+   "case_id": "analyst-ho2-040",
+   "answer_id": "3d0f6268bc1ed08b",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «inexacto» a un inventario que sólo es simulado."
+  },
+  {
+   "case_id": "analyst-ho2-040",
+   "answer_id": "2f3fc293afb7e71d",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-041",
+   "answer_id": "d6253d6e2398f973",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-041",
+   "answer_id": "6f1781ca0a041ac7",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Dice que el activo está en el catálogo KEV (lo está la vulnerabilidad)."
+  },
+  {
+   "case_id": "analyst-ho2-042",
+   "answer_id": "7f581ba929d58159",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-042",
+   "answer_id": "904c9b08c97a16e1",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Omite el advisory autoritativo en la evidencia que falta (sólo aparece en una acción)."
+  },
+  {
+   "case_id": "analyst-ho2-043",
+   "answer_id": "f6bad23b4b4301f3",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-043",
+   "answer_id": "5e9f1a024f9b41f1",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-044",
+   "answer_id": "3c5271b55da27b37",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-044",
+   "answer_id": "74e9de10fb0cb7fa",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-045",
+   "answer_id": "cf0439f9e3864752",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP; sitúa los rangos «en el inventario»."
+  },
+  {
+   "case_id": "analyst-ho2-045",
+   "answer_id": "1f1d16b5d58598b0",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-046",
+   "answer_id": "afbdfa8b8bf2e7bd",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «prueba activa» a una detección pasiva y la presenta como contradicción con la versión, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-046",
+   "answer_id": "958470721391226a",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que la versión está fuera de rango."
+  },
+  {
+   "case_id": "analyst-ho2-047",
+   "answer_id": "02c93d1d9b773fdf",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Atribuye el estado probable en parte a la detección pasiva, que el motor dice que no cuenta como validación."
+  },
+  {
+   "case_id": "analyst-ho2-047",
+   "answer_id": "493f3ef9ede9b7c1",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-048",
+   "answer_id": "d424c31738bf06b4",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-048",
+   "answer_id": "81304a7650706de6",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 0,
+    "calibration": 2,
+    "clarity": 1
+   },
+   "comment": "Sin acciones recomendadas."
+  },
+  {
+   "case_id": "analyst-ho2-049",
+   "answer_id": "092d809b7f39e83e",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-049",
+   "answer_id": "b0722b07de1111c1",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «prueba activa» a una detección pasiva; omite la validación independiente en la evidencia que falta."
+  },
+  {
+   "case_id": "analyst-ho2-050",
+   "answer_id": "be8ff63cc6962b6f",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-050",
+   "answer_id": "5344cd7603777c6a",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-051",
+   "answer_id": "0a0f637e6ab53917",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-051",
+   "answer_id": "4d68a428ebbdc83c",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-052",
+   "answer_id": "d9d6f452f6d8a16d",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-052",
+   "answer_id": "27950baaf2c8612c",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-053",
+   "answer_id": "deaead2a2e37e672",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-053",
+   "answer_id": "14e125744b988c45",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-054",
+   "answer_id": "c247e87b197e9c0d",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Sitúa la falta de rangos «en el inventario» y cita esa evidencia para ello."
+  },
+  {
+   "case_id": "analyst-ho2-054",
+   "answer_id": "311bf3571634dd42",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-055",
+   "answer_id": "711e26b1ade2d8bd",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «detección pasiva» al inventario de servicios; no hay ninguna detección de Nuclei."
+  },
+  {
+   "case_id": "analyst-ho2-055",
+   "answer_id": "f89af58b36233bf7",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-056",
+   "answer_id": "debd8a5fbbecbe4a",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-056",
+   "answer_id": "7c3964b3576b8e9f",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP y dice que ambos hosts «parecen ejecutar servicios similares»."
+  },
+  {
+   "case_id": "analyst-ho2-057",
+   "answer_id": "b5bb481be7ff6b27",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-057",
+   "answer_id": "939a66467850e499",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "El advisory autoritativo y el rango no figuran como evidencia que falta (sólo en acciones)."
+  },
+  {
+   "case_id": "analyst-ho2-058",
+   "answer_id": "0c4c676e0b441cc4",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Presenta como contradicción el acierto en otra IP, cosa que el motor no marca."
+  },
+  {
+   "case_id": "analyst-ho2-058",
+   "answer_id": "8b83ed40baac4556",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": "No explica que Nuclei acertó en otra IP."
+  },
+  {
+   "case_id": "analyst-ho2-059",
+   "answer_id": "227340c014e28767",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 1,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-059",
+   "answer_id": "00be1a2a5908f013",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 2,
+    "actionability": 1,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Sólo restringe el acceso si la versión queda fuera de rango; no propone volver a validar."
+  },
+  {
+   "case_id": "analyst-ho2-060",
+   "answer_id": "b510e11e5bd1ad74",
+   "scores": {
+    "fidelity": 2,
+    "completeness": 1,
+    "actionability": 2,
+    "calibration": 1,
+    "clarity": 1
+   },
+   "comment": ""
+  },
+  {
+   "case_id": "analyst-ho2-060",
+   "answer_id": "cae311dfb56376e9",
+   "scores": {
+    "fidelity": 1,
+    "completeness": 2,
+    "actionability": 2,
+    "calibration": 2,
+    "clarity": 2
+   },
+   "comment": "Llama «prueba activa» a una detección pasiva (aunque luego lo aclara)."
+  }
+ ]
+}

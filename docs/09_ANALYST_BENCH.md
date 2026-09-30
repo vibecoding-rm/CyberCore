@@ -391,6 +391,52 @@ puerta a una ejecución guardada sin volver a llamar al modelo.
   de C0; se reutilizaron sus puntuaciones (misma respuesta, misma nota) y
   sólo se puntuaron las 39 del 4B, así que el revisor sabía qué sistema
   estaba puntuando.
+- **Primera ejecución en `holdout2`** (`2026-09-29-holdout2-9b`, C0 y C2 = 9B
+  con v2; informe `reports/analyst/2026-09-29-holdout2-9b-report.json`). Se
+  generó en la CPU de un contenedor en la nube (4 vCPU, 15 GB, llama.cpp
+  `7fee178` compilado desde el código, mismo GGUF verificado por SHA-256,
+  contexto 8192), no en la L4: sus respuestas no son idénticas a las de la L4
+  para el mismo caso. La ejecución se interrumpió dos veces sin que nadie
+  leyera respuestas (reinicio del contenedor en el caso 7; `llama-server`
+  muerto por falta de memoria en el caso 28, por la caché de prompts de 8 GB
+  que las versiones recientes activan por defecto) y se reanudó con el punto
+  de control; las 28 primeras respuestas se generaron sin `--cache-ram 0` y
+  las 32 últimas con él. Todo queda en `HOLDOUT_LOG.md`. Puntuación a ciegas
+  de **un solo revisor** (`claude-revisor`, 120 respuestas, fichero
+  `reports/analyst/scores/2026-09-29-holdout2-9b-claude-revisor.json`):
+
+  | Criterio | C0 | C2 (9B, v2) |
+  |---|---|---|
+  | Puerta | 60/60 | 60/60 |
+  | Fidelidad | 2,00 | 1,50 |
+  | Completitud | 1,00 | **1,85** |
+  | Accionabilidad | 1,40 | **1,93** |
+  | Calibración | 1,07 | **2,00** |
+  | Claridad | 1,00 | **2,00** |
+  | Total | 6,47 | **9,28** |
+  | Fidelidad 0 / 1 | 0 / 0 | 0 / 30 |
+  | Latencia media | — | 174 s (CPU de 4 vCPU) |
+
+  Sin fallos de puerta no hay respaldo: la tasa de respaldo en C0 es 0 y la
+  adopción v2 coincide con la v1. Con este revisor, C2 **cumple los criterios
+  1–3** (100 % de puerta, ninguna fidelidad 0, +2,8 puntos sobre C0 y mejora
+  en cuatro de cinco criterios). La adopción sigue **incompleta**: falta el
+  revisor humano obligatorio en holdout (muestra de 15 casos en
+  `config/analyst_bench/review_samples.json`) y la decisión del operador
+  sobre el criterio 4 (259 s por caso y 7,5 GB en el equipo de 16 GB).
+  La fidelidad es la más baja de todas las rondas del 9B con v2 (1,85 en
+  desarrollo): 30 respuestas con fidelidad 1, en cuatro patrones.
+  - 12 presentan como «contradicción» algo que el motor no marca así, sobre
+    todo un acierto de Nuclei en otra IP.
+  - 8 llaman «prueba activa» a una detección pasiva, aunque varias lo corrigen
+    en la frase siguiente.
+  - 4 atribuyen el estado a la detección pasiva o a la prueba negativa.
+  - 3 usan los backports para dudar de un positivo activo.
+
+  Ninguna afirma que el activo sea vulnerable sin respaldo. Parte de la
+  diferencia puede venir del revisor, que pudo ser más estricto que en rondas
+  anteriores con la etiqueta «contradicción»: la muestra humana incluye 10 de
+  esas 30 respuestas, con cada patrón, para comprobarlo.
 
 ## Limitaciones conocidas
 

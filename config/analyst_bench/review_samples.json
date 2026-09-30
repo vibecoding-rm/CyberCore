@@ -20,5 +20,27 @@
     "reviewer": "humano (revisor-web)",
     "reason": "Muestra estratificada para el revisor humano obligatorio en el holdout (docs/09): 5 casos por CVE; 2 confirmed, 4 probable y 9 candidate; cubre contradicción, inventario simulado, prueba negativa, acierto en otra IP, detección pasiva, sin rangos, sin versión y versión fuera de rango; incluye 5 de los 6 casos en que claude-revisor puso fidelidad 1 a C2 (007, 014, 027, 057, 058). Elegida por claude-revisor después de puntuar; el revisor humano no ve sus puntuaciones.",
     "created": "2026-09-29"
+  },
+  "2026-09-29-holdout2-9b": {
+    "cases": [
+      "analyst-ho2-001",
+      "analyst-ho2-002",
+      "analyst-ho2-005",
+      "analyst-ho2-040",
+      "analyst-ho2-055",
+      "analyst-ho2-011",
+      "analyst-ho2-014",
+      "analyst-ho2-023",
+      "analyst-ho2-041",
+      "analyst-ho2-056",
+      "analyst-ho2-015",
+      "analyst-ho2-016",
+      "analyst-ho2-020",
+      "analyst-ho2-027",
+      "analyst-ho2-036"
+    ],
+    "reviewer": "humano (revisor-web)",
+    "reason": "Muestra estratificada para el revisor humano obligatorio en el holdout (docs/09): 5 casos por CVE; 2 confirmed, 4 probable y 9 candidate; cubre contradicción de versión, inventario simulado, prueba negativa, acierto en otra IP, detección pasiva, sin rangos almacenados y sin versión; incluye 10 de los 30 casos en que claude-revisor puso fidelidad 1 a C2 (001, 005, 014, 015, 020, 023, 040, 041, 055, 056), con cada patrón (contradicción no marcada por el motor, pasiva llamada activa, estado atribuido a la detección pasiva, backports frente a un positivo), para comprobar si fue demasiado estricto. Elegida por claude-revisor después de puntuar; el revisor humano no ve sus puntuaciones.",
+    "created": "2026-09-30"
   }
 }

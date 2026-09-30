@@ -1,0 +1,91 @@
+{
+  "run_id": "2026-09-29-holdout2-9b",
+  "split": "holdout2",
+  "systems": {
+    "C0": {
+      "info": {
+        "kind": "template"
+      },
+      "cases": 60,
+      "gate_passed": 60,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 60,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 2,
+        "completeness": 1,
+        "actionability": 1.4,
+        "calibration": 1.067,
+        "clarity": 1
+      },
+      "mean_total": 6.467,
+      "fidelity_zero": [],
+      "mean_latency_ms": 0.0
+    },
+    "C2": {
+      "info": {
+        "kind": "llm",
+        "model": "qwen3.5:9b",
+        "prompt": "v2",
+        "endpoint": "127.0.0.1",
+        "hardware": "Contenedor en la nube, 4 vCPU, 15 GB, llama.cpp 7fee178 compilado para CPU, --cache-ram 0, Q4_K_M"
+      },
+      "cases": 60,
+      "gate_passed": 60,
+      "gate_failures": [],
+      "errors": [],
+      "scored_cases": 60,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.5,
+        "completeness": 1.85,
+        "actionability": 1.933,
+        "calibration": 2,
+        "clarity": 2
+      },
+      "mean_total": 9.283,
+      "fidelity_zero": [],
+      "mean_latency_ms": 174160.103
+    }
+  },
+  "agreement": {
+    "compared_scores": 0,
+    "exact": null,
+    "within_one": null
+  },
+  "adoption": {
+    "C2": {
+      "complete": false,
+      "meets_criteria": true,
+      "reasons": []
+    }
+  },
+  "pipeline": {
+    "C2": {
+      "cases": 60,
+      "fallback_to_c0": [],
+      "fallback_rate": 0.0,
+      "gate_passed": 60,
+      "gate_failures": [],
+      "scored_cases": 60,
+      "min_reviewers": 1,
+      "criteria": {
+        "fidelity": 1.5,
+        "completeness": 1.85,
+        "actionability": 1.933,
+        "calibration": 2,
+        "clarity": 2
+      },
+      "mean_total": 9.283,
+      "fidelity_zero": []
+    }
+  },
+  "adoption_pipeline": {
+    "C2": {
+      "complete": false,
+      "meets_criteria": true,
+      "reasons": []
+    }
+  }
+}
